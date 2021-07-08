@@ -61,14 +61,25 @@ class MOTreID(MOTSequence):
 
         imgs = torch.cat(imgs)
         labels = torch.LongTensor(labels)
+        # Apply training transformation
+        inverse = T.ToPILImage()
+        crops = []
+        for img in imgs:
+            img = inverse(img)
+            crops.append(self.transform(img))
+        crops = torch.stack(crops)
 
-        return imgs, labels
+        return crops, labels
 
     def _build_people_profile(self):
         profiles = {}
 
         # Extract people profile frame-by-frame
         inverse = T.ToPILImage()
+        preprocess = T.Compose([
+                        T.Resize((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                        T.ToTensor()
+                        ])
         seq_length = super().__len__()
         for idx in range(seq_length):
             print(f"Build Profile {idx}/{seq_length}", end="\r\b")
@@ -85,7 +96,7 @@ class MOTreID(MOTSequence):
                 try:
                     crop = img[:, ymin:ymax, xmin:xmax]
                     crop = inverse(crop)
-                    crop = self.transform(crop)
+                    crop = preprocess(crop)
                 except Exception as e:
                     continue
 
@@ -159,12 +170,13 @@ class MOTreIDWrapper:
             P=16, K=4,
             min_crops_per_person=8,
             transform=None,
+            no_cache=False,
             # MOTSequence Parameters
             **kwargs):
         # Load Preprocessed dataset
         if not osp.exists(MOTreIDWrapper.CACHE_DIR):
             os.makedirs(MOTreIDWrapper.CACHE_DIR)
-        if osp.exists(osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth')):
+        if osp.exists(osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth')) and not no_cache:
             self.data = torch.load(osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth'))
         else:
             sequence_dirs = [ osp.join(root, seq) for seq in os.listdir(root) ]
@@ -211,6 +223,7 @@ class MOTreIDWrapper:
                 T.Resize((int(MOTreID.IMG_HEIGHT*1.125), int(MOTreID.IMG_WIDTH*1.125))),
                 T.RandomCrop((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
                 T.RandomHorizontalFlip(),
+                T.ColorJitter(brightness=0.3, contrast=0.1, saturation=0.1, hue=0),
                 T.ToTensor(),
                 T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
@@ -222,6 +235,12 @@ class MOTreIDWrapper:
                 T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
                 ])
+        elif mode == 'view':
+            transform = T.Compose([
+                T.Resize((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                T.ToTensor(),
+                ])
+
         for dataset in self.data.datasets:
             dataset.transform = transform
 
@@ -232,10 +251,10 @@ class MOTreIDWrapper:
 
 
 if __name__ == "__main__":
-    dataset = MOTreID(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
-    for i in range(len(dataset)):
-        imgs, labels = dataset[i]
-        print(imgs.shape, labels.shape)
+    # dataset = MOTreID(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
+    # for i in range(len(dataset)):
+        # imgs, labels = dataset[i]
+        # print(imgs.shape, labels.shape)
 
-    dataset = MOTreIDWrapper(root="/home/johnnylord/dataset/MOT16/train/", detector='frcnn', num_workers=2)
+    dataset = MOTreIDWrapper(root="/home/johnnylord/dataset/MOT16/train/", detector='frcnn', num_workers=2, no_cache=True)
     print(len(dataset))
