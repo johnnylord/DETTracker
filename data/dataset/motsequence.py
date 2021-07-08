@@ -37,7 +37,7 @@ class MOTSequence:
             useextra=False,
             detector='default',
             min_visibility=0.5,
-            min_conf_threshold=0.5):
+            min_conf_threshold=0.0):
         self.root = root
         self.mode = mode
         self.useextra = useextra
@@ -63,6 +63,9 @@ class MOTSequence:
         seqpath = osp.join(root, 'seqinfo.ini')
         parser = configparser.ConfigParser()
         parser.read(seqpath)
+        self.fps = int(parser['Sequence']['framerate'])
+        self.imgWidth = int(parser['Sequence']['imwidth'])
+        self.imgHeight = int(parser['Sequence']['imheight'])
 
         # All images
         imgDir = osp.join(root, 'img1')
@@ -71,11 +74,46 @@ class MOTSequence:
         # Read ground truth tracks
         if mode == 'train':
             gtfile = osp.join(root, 'gt', 'gt.txt')
-            self.gt_df = pd.read_csv(gtfile, header=None, names=MOTSequence.GT_COLUMNS)
+            df = pd.read_csv(gtfile, header=None, names=MOTSequence.GT_COLUMNS)
+            # Process Groundtruth
+            self.all_tboxes = {}
+            for imgFile in self.imgs:
+                frameId = int(osp.basename(imgFile).split(".")[0])
+                tracks = df.loc[(
+                                (df['Frame'] == frameId)
+                                & (df['Ignore'] == 1)
+                                & (
+                                    (df['Type'] == 1)
+                                    | (df['Type'] == 2)
+                                )
+                                & (df['Visibility'] >= self.min_visibility)
+                            )]
+                names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Visibility" ]
+                tboxes = tracks[names].to_numpy()
+                if len(tboxes) > 0:
+                    tboxes[:, 1] -= 1
+                    tboxes[:, 2] -= 1
+                tboxes = tboxes.tolist()
+                self.all_tboxes[frameId] = tboxes
 
         # Read detection
         detfile = osp.join(root, 'det', MOTSequence.DETECTOR_TABLE[detector])
-        self.det_df = pd.read_csv(detfile, header=None, names=MOTSequence.DET_COLUMNS)
+        df = pd.read_csv(detfile, header=None, names=MOTSequence.DET_COLUMNS)
+        # Process Detection
+        self.all_bboxes = {}
+        for imgFile in self.imgs:
+            frameId = int(osp.basename(imgFile).split(".")[0])
+            dets = df.loc[(
+                            (df['Frame'] == frameId)
+                            & (df['Conf'] >= self.min_conf_threshold)
+                        )]
+            names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
+            bboxes = dets[names].to_numpy()
+            if len(bboxes) > 0:
+                bboxes[:, 1] -= 1
+                bboxes[:, 2] -= 1
+            bboxes = bboxes.tolist()
+            self.all_bboxes[frameId] = bboxes
 
     def __len__(self):
         return len(self.imgs)
@@ -88,31 +126,9 @@ class MOTSequence:
 
         # Filter out groundtruth trajectory with respect to the image
         frameId = int(osp.basename(imgPath).split(".")[0])
-        if self.mode == 'train':
-            tracks = self.gt_df.loc[(
-                            (self.gt_df['Frame'] == frameId)
-                            & (self.gt_df['Ignore'] == 1)
-                            & (
-                                (self.gt_df['Type'] == 1)
-                                | (self.gt_df['Type'] == 2)
-                            )
-                            & (self.gt_df['Visibility'] >= self.min_visibility)
-                        )]
-            names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Visibility" ]
-            tboxes = tracks[names]
-
-        # Filter out detections with respect to the image
-        dets = self.det_df.loc[(
-                        (self.det_df['Frame'] == frameId)
-                        & (self.det_df['Conf'] >= self.min_conf_threshold)
-                    )]
-        names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
-        bboxes = dets[names]
-
-        if self.mode == 'train':
-            return img, tboxes.to_numpy().tolist(), bboxes.to_numpy().tolist()
-        else:
-            return img, [], bboxes.to_numpy().tolist()
+        tboxes = self.all_tboxes[frameId] if self.mode == 'train' else []
+        bboxes = self.all_bboxes[frameId]
+        return img, tboxes, bboxes
 
 
 class MOTDSequence(MOTSequence):
