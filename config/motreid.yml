@@ -10,7 +10,7 @@ train:
 dataset:
   root: "/home/johnnylord/dataset/MOT16/train"
   P: 16
-  K: 4
+  K: 8
 
 model:
   features: 128
@@ -19,5 +19,5 @@ loss:
   margin: 0.2
 
 optimizer:
-  lr: 0.001
+  lr: 0.0003
   weight_decay: 0.0001

@@ -29,11 +29,9 @@ class MOTreIDAgent:
         self.device = torch.device(device)
 
         # Train Dataset (Batch size = P*K)
-        self.dataset = MOTreIDWrapper(root=config['dataset']['root'],
-                                    P=config['dataset']['P'],
-                                    K=config['dataset']['K'],
-                                    detector="frcnn", mode="train")
+        self.dataset = MOTreIDWrapper(root=config['dataset']['root'], detector="frcnn", mode="train")
         self.dataset.use_transform(mode='train')
+        self.dataset.use_PK(P=config['dataset']['P'], K=config['dataset']['K'])
 
         # Construct Model
         model = resnet50_reid(features=config['model']['features'], classes=1)
@@ -87,7 +85,7 @@ class MOTreIDAgent:
         triplet_losses = []
         triplet_counts = []
         self.model.train()
-        for idx in loop:
+        for batch_idx in loop:
             idx = np.random.randint(0, len(self.dataset))
             # Move data
             imgs, labels = self.dataset[idx]
@@ -107,8 +105,8 @@ class MOTreIDAgent:
                     loss=sum(triplet_losses)/len(triplet_losses),
                     count=sum(triplet_counts)/len(triplet_counts))
             # Logging
-            self.board.add_scalar("Train Step Count", count, current_epoch*len(self.dataset)+idx)
-            self.board.add_scalar("Train Step Loss", loss.item(), current_epoch*len(self.dataset)+idx)
+            self.board.add_scalar("Train Step Count", count, current_epoch*len(self.dataset)+batch_idx)
+            self.board.add_scalar("Train Step Loss", loss.item(), current_epoch*len(self.dataset)+batch_idx)
 
         epoch_loss = sum(triplet_losses)/len(triplet_losses)
         epoch_count = sum(triplet_counts)/len(triplet_counts)
