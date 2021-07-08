@@ -69,6 +69,7 @@ class MOTreIDAgent:
         self.schedular.load_state_dict(checkpoint['schedular'])
         self.current_loss = checkpoint['current_loss']
         self.current_count = checkpoint['current_count']
+        self.current_epoch = checkpoint['current_epoch']
         print("Resume training at epoch '{}'".format(self.current_epoch))
 
     def train(self):
@@ -87,6 +88,7 @@ class MOTreIDAgent:
         triplet_counts = []
         self.model.train()
         for idx in loop:
+            idx = np.random.randint(0, len(self.dataset))
             # Move data
             imgs, labels = self.dataset[idx]
             imgs = imgs.to(self.device)
@@ -131,6 +133,7 @@ class MOTreIDAgent:
             'schedular': self.schedular.state_dict(),
             'current_loss': self.current_loss,
             'current_count': self.current_count,
+            'current_epoch': self.current_epoch,
             }
         checkpoint_path = osp.join(self.logdir, 'best.pth')
         torch.save(checkpoint, checkpoint_path)
