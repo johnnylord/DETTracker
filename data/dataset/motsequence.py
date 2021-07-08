@@ -30,6 +30,18 @@ class MOTSequence:
         'dpm-processed': 'det-dpm-processed.txt',
         'frcnn-processed': 'det-frcnn-processed.txt',
     }
+
+    GT_TABLE = {
+        'default': 'gt.txt',
+        'sdp': 'gt-sdp.txt',
+        'dpm': 'gt-dpm.txt',
+        'frcnn': 'gt-frcnn.txt',
+        'processed': 'gt.txt',
+        'sdp-processed': 'gt-sdp.txt',
+        'dpm-processed': 'gt-dpm.txt',
+        'frcnn-processed': 'gt-frcnn.txt',
+    }
+
     def __init__(
             self,
             root,
@@ -73,7 +85,7 @@ class MOTSequence:
 
         # Read ground truth tracks
         if mode == 'train':
-            gtfile = osp.join(root, 'gt', 'gt.txt')
+            gtfile = osp.join(root, 'gt', MOTSequence.GT_TABLE[detector])
             df = pd.read_csv(gtfile, header=None, names=MOTSequence.GT_COLUMNS)
             # Process Groundtruth
             self.all_tboxes = {}
@@ -177,7 +189,7 @@ class MOTDSequence(MOTSequence):
 
 if __name__ == "__main__":
     print("Normal Sequence")
-    sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02")
+    sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
     img, tboxes, bboxes = sequence[3]
     print(img.shape)
     print(tboxes)
@@ -185,7 +197,7 @@ if __name__ == "__main__":
     print("="*30)
 
     print("Depth Sequence")
-    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02")
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
     img, depthmap, flow, tboxes, bboxes = sequence[3]
     print(img.shape)
     print(depthmap.shape)
