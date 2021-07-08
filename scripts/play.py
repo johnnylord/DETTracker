@@ -16,7 +16,9 @@ def main(args):
     if torch.cuda.is_available():
         torch.rand(1).cuda()
 
-    sequence = MOTDSequence(root=args['sequence'], mode='train')
+    sequence = MOTDSequence(root=args['sequence'],
+                            detector=args['detector'],
+                            mode='test')
 
     if not args['silent']:
         cv2.namedWindow('GT', cv2.WINDOW_GUI_EXPANDED)
@@ -99,6 +101,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sequence", required=True, help="sequence directory")
+    parser.add_argument("--detector", default='frcnn', help="default detector")
     parser.add_argument("--silent", action='store_true')
     parser.add_argument("--export", action='store_true')
     args = vars(parser.parse_args())

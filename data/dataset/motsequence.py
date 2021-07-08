@@ -24,11 +24,11 @@ class MOTSequence:
         'default': 'det.txt',
         'sdp': 'det-sdp.txt',
         'dpm': 'det-dpm.txt',
-        'faster-rcnn': 'det-faster-rcnn.txt',
+        'frcnn': 'det-frcnn.txt',
         'processed': 'det-processed.txt',
         'sdp-processed': 'det-sdp-processed.txt',
         'dpm-processed': 'det-dpm-processed.txt',
-        'faster-rcnn-processed': 'det-faster-rcnn-processed.txt',
+        'frcnn-processed': 'det-frcnn-processed.txt',
     }
     def __init__(
             self,
@@ -52,11 +52,11 @@ class MOTSequence:
             detector == 'default'                   # MOT16
             or detector == 'sdp'                    # MOT17-SDP
             or detector == 'dpm'                    # MOT17-DPM
-            or detector == 'faster-rcnn'            # MOT17-FRCNN
+            or detector == 'frcnn'            # MOT17-FRCNN
             or detector == 'processed'              # MOT16
             or detector == 'sdp-processed'          # MOT17-SDP (ReID)
             or detector == 'dpm-processed'          # MOT17-DPM (ReID)
-            or detector == 'faster-rcnn-processed'  # MOT17-FRCNN (ReID)
+            or detector == 'frcnn-processed'  # MOT17-FRCNN (ReID)
             )
 
         # Read seqinfo.ini

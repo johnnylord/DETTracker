@@ -4,8 +4,8 @@ import sys
 import subprocess
 import multiprocessing
 
-NUM_WORKERS = 4
-MOT_DIR = "/home/johnnylord/dataset/NTU-MOTD/test/"
+NUM_WORKERS = 3
+MOT_DIR = "/home/johnnylord/dataset/MOT16/test"
 
 def worker(subsequences):
     for sequence in subsequences:
