@@ -1,6 +1,10 @@
+import os
+import os.path as osp
+import multiprocessing
 import numpy as np
 
 import torch
+from torch.utils.data import ConcatDataset
 import torchvision.transforms as T
 
 from .motsequence import MOTSequence
@@ -26,7 +30,7 @@ class MOTreID(MOTSequence):
         else:
             self.transform = T.Compose([
                 T.Resize((int(MOTreID.IMG_HEIGHT*1.125), int(MOTreID.IMG_WIDTH*1.125))),
-                T.CenterCrop((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                T.RandomCrop((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
                 T.ToTensor(),
                 T.Normalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
@@ -104,8 +108,134 @@ class MOTreID(MOTSequence):
         return data
 
 
+class MOTreIDWorker(multiprocessing.Process):
+
+    def __init__(self, task_queue, result_queue):
+        super().__init__()
+        self.task_queue = task_queue
+        self.result_queue = result_queue
+
+    def run(self):
+        while True:
+            next_task = self.task_queue.get()
+            if next_task is None:
+                self.task_queue.task_done()
+                break
+            answer = next_task()
+            self.task_queue.task_done()
+            self.result_queue.put(answer)
+        return
+
+
+class MOTreIDLoader:
+
+    def __init__(self, root, P, K, min_crops_per_person, transform, **kwargs):
+        self.root = root
+        self.P = P
+        self.K = K
+        self.min_crops_per_person = min_crops_per_person
+        self.transform = transform
+        self.kwargs = kwargs
+
+    def __call__(self):
+        return MOTreID(
+                    root=self.root,
+                    P=self.P,
+                    K=self.K,
+                    transform=self.transform,
+                    min_crops_per_person=self.min_crops_per_person,
+                    mode='train', **self.kwargs)
+
+
+class MOTreIDWrapper:
+    CACHE_DIR = osp.join(osp.expanduser("~"), ".cache/torch/checkpoints")
+
+    def __init__(
+            self,
+            # Wrapper Parameters
+            root,
+            num_workers=4,
+            # MOTreID Parameters
+            P=16, K=4,
+            min_crops_per_person=8,
+            transform=None,
+            # MOTSequence Parameters
+            **kwargs):
+        # Load Preprocessed dataset
+        if not osp.exists(MOTreIDWrapper.CACHE_DIR):
+            os.makedirs(MOTreIDWrapper.CACHE_DIR)
+        if osp.exists(osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth')):
+            self.data = torch.load(osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth'))
+        else:
+            sequence_dirs = [ osp.join(root, seq) for seq in os.listdir(root) ]
+            # Shared Queue between processes
+            tasks = multiprocessing.JoinableQueue()
+            results = multiprocessing.Manager().Queue()
+            # Spawn reid loaders
+            workers = [ MOTreIDWorker(tasks, results) for i in range(num_workers) ]
+            for w in workers:
+                w.start()
+            # Put tasks in to queues
+            for sequence_dir in sequence_dirs:
+                loader = MOTreIDLoader(
+                            root=sequence_dir,
+                            P=P, K=K,
+                            min_crops_per_person=min_crops_per_person,
+                            transform=transform,
+                            **kwargs)
+                tasks.put(loader)
+            # Put poison pill for each worker
+            for i in range(num_workers):
+                tasks.put(None)
+            # Wait for all of the tasks to finish
+            tasks.join()
+
+            datasets = []
+            while len(datasets) != len(sequence_dirs):
+                dataset = results.get()
+                datasets.append(dataset)
+
+            self.data = ConcatDataset(datasets)
+            checkpoint_path = osp.join(MOTreIDWrapper.CACHE_DIR, 'motreids.pth')
+            torch.save(self.data, checkpoint_path)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+    def use_transform(self, mode='train'):
+        if mode == 'train':
+            transform = T.Compose([
+                T.Resize((int(MOTreID.IMG_HEIGHT*1.125), int(MOTreID.IMG_WIDTH*1.125))),
+                T.RandomCrop((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                T.RandomHorizontalFlip(),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+                ])
+        elif mode == 'test':
+            transform = T.Compose([
+                T.Resize((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225]),
+                ])
+        for dataset in self.data.datasets:
+            dataset.transform = transform
+
+    def use_PK(self, P, K):
+        for dataset in self.data.datasets:
+            dataset.P = P
+            dataset.K = K
+
+
 if __name__ == "__main__":
     dataset = MOTreID(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
     for i in range(len(dataset)):
         imgs, labels = dataset[i]
         print(imgs.shape, labels.shape)
+
+    dataset = MOTreIDWrapper(root="/home/johnnylord/dataset/MOT16/train/", detector='frcnn', num_workers=2)
+    print(len(dataset))
