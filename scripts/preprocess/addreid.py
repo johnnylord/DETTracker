@@ -28,7 +28,7 @@ def main(args):
     # ReID Model
     idx = GPUtil.getFirstAvailable(order='memory')[0]
     device = f"cuda:{idx}"
-    checkpoint = torch.load(args['reid'], map_location={ "cuda:0": device })
+    checkpoint = torch.load(args['reid'])
     model = resnet50_reid(features=128, classes=1)
     model.load_state_dict(checkpoint['model'])
     model.to(device)
