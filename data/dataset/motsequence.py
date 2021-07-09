@@ -18,7 +18,8 @@ class MOTSequence:
         - Different conditions (weather)
     """
     GT_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Ignore", "Type", "Visibility" ]
-    DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf", "X", "Y", "Z" ]
+    MOT16DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf", "X", "Y", "Z" ]
+    MOT17DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
 
     DETECTOR_TABLE = {
         'default': 'det.txt',
@@ -46,13 +47,11 @@ class MOTSequence:
             self,
             root,
             mode='train',
-            useextra=False,
             detector='default',
             min_visibility=0.5,
             min_conf_threshold=0.0):
         self.root = root
         self.mode = mode
-        self.useextra = useextra
         self.detector = detector
         self.min_visibility = min_visibility
         self.min_conf_threshold = min_conf_threshold
@@ -110,7 +109,19 @@ class MOTSequence:
 
         # Read detection
         detfile = osp.join(root, 'det', MOTSequence.DETECTOR_TABLE[detector])
-        df = pd.read_csv(detfile, header=None, names=MOTSequence.DET_COLUMNS)
+        df = pd.read_csv(detfile, header=None)
+        if (
+            detector == 'sdp'
+            or detector == 'dpm'
+            or detector == 'frcnn'
+        ):
+            columns = MOTSequence.MOT17DET_COLUMNS + list(df.columns[len(MOTSequence.MOT17DET_COLUMNS):])
+            df.columns = columns
+            extra_cols = columns[len(MOTSequence.MOT17DET_COLUMNS):]
+        else:
+            columns = MOTSequence.MOT16DET_COLUMNS + list(df.columns[len(MOTSequence.MOT16DET_COLUMNS):])
+            df.columns = columns
+            extra_cols = columns[len(MOTSequence.MOT16DET_COLUMNS):]
         # Process Detection
         self.all_bboxes = {}
         for imgFile in self.imgs:
@@ -120,6 +131,7 @@ class MOTSequence:
                             & (df['Conf'] >= self.min_conf_threshold)
                         )]
             names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
+            names += extra_cols
             bboxes = dets[names].to_numpy()
             if len(bboxes) > 0:
                 bboxes[:, 1] -= 1
