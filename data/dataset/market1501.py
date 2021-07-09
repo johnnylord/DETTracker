@@ -8,7 +8,7 @@ from .base import ReidImageDataset
 __all__ = [ "Market1501" ]
 
 
-class Market1501(base.ReidImageDataset):
+class Market1501(ReidImageDataset):
     """Market1501 dataset
     Reference:
         Zheng et al. Scalable Person Re-identification: A Benchmark. ICCV 2015.
