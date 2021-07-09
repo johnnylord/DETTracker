@@ -1,0 +1,23 @@
+---
+agent: "MOTreIDAgent"
+
+train:
+  device: "cuda:0"
+  n_epochs: 50
+  logdir: "run/motreid"
+  resume: false
+
+dataset:
+  root: "/home/johnnylord/dataset/MOT16/train"
+  P: 16
+  K: 8
+
+model:
+  features: 128
+
+loss:
+  margin: 0.2
+
+optimizer:
+  lr: 0.0003
+  weight_decay: 0.0001
