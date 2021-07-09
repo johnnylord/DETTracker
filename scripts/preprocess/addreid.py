@@ -36,11 +36,14 @@ def main(args):
 
     detectors = [ 'default', 'sdp', 'dpm', 'frcnn' ]
     for detector in detectors:
+        try:
+            sequence = MOTSequence(root=args['sequence'], mode='test', detector=detector)
+        except Exception as e:
+            continue
 
         # Add ReID
         print(f"Process sequence with detector {detector}")
         result = {}
-        sequence = MOTSequence(root=args['sequence'], mode='test', detector=detector)
         for idx in tqdm(range(len(sequence))):
             img, tboxes, bboxes = sequence[idx]
             # Filter out bboxes with small area
