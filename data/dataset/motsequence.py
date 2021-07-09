@@ -22,27 +22,39 @@ class MOTSequence:
     MOT17DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
 
     DETECTOR_TABLE = {
+        # =========== Detection Only ===========
         'default': 'det.txt',
         'sdp': 'det-sdp.txt',
         'dpm': 'det-dpm.txt',
         'frcnn': 'det-frcnn.txt',
-        'processed': 'det-processed.txt',
+        # =========== ReID with MOT ============
+        'default-processed': 'det-processed.txt',
         'sdp-processed': 'det-sdp-processed.txt',
         'dpm-processed': 'det-dpm-processed.txt',
         'frcnn-processed': 'det-frcnn-processed.txt',
+        # =========== ReID with Market1501 =====
+        'default-processed-market1501': 'det-processed-market1501.txt',
+        'sdp-processed-market1501': 'det-sdp-processed-market1501.txt',
+        'dpm-processed-market1501': 'det-dpm-processed-market1501.txt',
+        'frcnn-processed-market1501': 'det-frcnn-processed-market1501.txt',
     }
-
     GT_TABLE = {
+        # =========== Detection Only ===========
         'default': 'gt.txt',
         'sdp': 'gt-sdp.txt',
         'dpm': 'gt-dpm.txt',
         'frcnn': 'gt-frcnn.txt',
-        'processed': 'gt.txt',
+        # =========== ReID with MOT ============
+        'default-processed': 'gt.txt',
         'sdp-processed': 'gt-sdp.txt',
         'dpm-processed': 'gt-dpm.txt',
         'frcnn-processed': 'gt-frcnn.txt',
+        # =========== ReID with Market1501 =====
+        'default-processed-market1501': 'gt.txt',
+        'sdp-processed-market1501': 'gt-sdp.txt',
+        'dpm-processed-market1501': 'gt-dpm.txt',
+        'frcnn-processed-market1501': 'gt-frcnn.txt',
     }
-
     def __init__(
             self,
             root,
@@ -139,6 +151,17 @@ class MOTSequence:
             bboxes = bboxes.tolist()
             self.all_bboxes[frameId] = bboxes
 
+    def __str__(self):
+        content = (
+            f"[Sequence]\n"
+            f" - name: {self.root}\n"
+            f" - length: {self.__len__()}\n"
+            f" - detector: {self.detector}\n"
+            f" - min_visibility: {self.min_visibility}\n"
+            f" - min_conf_threshold: {self.min_conf_threshold}\n"
+        )
+        return content
+
     def __len__(self):
         return len(self.imgs)
 
@@ -200,27 +223,29 @@ class MOTDSequence(MOTSequence):
 
 
 if __name__ == "__main__":
-    print("Normal Sequence")
-    sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
-    img, tboxes, bboxes = sequence[3]
-    print(img.shape)
-    print(tboxes)
-    print(bboxes)
-    print("="*30)
+    # print("Normal Sequence")
+    # sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
+    # img, tboxes, bboxes = sequence[3]
+    # print(img.shape)
+    # print(tboxes)
+    # print(bboxes)
+    # print("="*30)
 
     print("Depth Sequence")
-    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
-    img, depthmap, flow, tboxes, bboxes = sequence[3]
-    print(img.shape)
-    print(depthmap.shape)
-    print(flow.shape)
-    print(tboxes)
-    print(bboxes)
-    print("="*30)
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn-processed', mode='train')
+    img, depthmap, flowmap, tboxes, bboxes = sequence[3]
+    print(img.shape, img.min(), img.max())
+    print(depthmap.shape, depthmap.min(), depthmap.max())
+    print(flowmap.shape, flowmap.min(), flowmap.max())
+    print(bboxes[0])
 
-    import time
-    start_time = time.time()
-    for i in range(len(sequence)):
-        print(f"Read:{i}", end='\r\b')
-        sample = sequence[i]
-    print("Elapsed:", time.time()-start_time)
+    # print(tboxes)
+    # print(bboxes)
+    # print("="*30)
+
+    # import time
+    # start_time = time.time()
+    # for i in range(len(sequence)):
+        # print(f"Read:{i}", end='\r\b')
+        # sample = sequence[i]
+    # print("Elapsed:", time.time()-start_time)
