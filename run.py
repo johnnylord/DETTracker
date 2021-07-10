@@ -2,12 +2,15 @@ import os
 import os.path as osp
 import argparse
 
+import cv2
 import numpy as np
 import torchvision.transforms as T
+from tqdm import tqdm
 
 from data.dataset.motsequence import MOTDSequence
 from tracker.deepsort import DeepSORT
 from utils.display import get_color, draw_box, draw_text
+from utils.evaluation import export_results
 
 
 def main(args):
@@ -19,6 +22,18 @@ def main(args):
                     mode='test')
     print(sequence)
 
+    # Create output directory
+    output_dir = osp.join(args['output'], sequence.name)
+    if not osp.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Load writer
+    if args['export']:
+        output = osp.join(output_dir, 'video.mp4')
+        fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+        writer = cv2.VideoWriter(output, fourcc, sequence.fps,
+                                (sequence.imgWidth, sequence.imgHeight))
+
     # Load Trackor
     tracker = DeepSORT(
                 n_init=args['n_init'],
@@ -27,23 +42,34 @@ def main(args):
                 pool_size=args['pool_size'],
                 iou_dist_threhsold=args['iou_dist_threhsold'],
                 cos_dist_threhsold=args['cos_dist_threhsold'])
-    print(tracker)
 
     # Process video frame-by-frame
+    results = {}
     inverse = T.ToPILImage()
-    for idx in range(len(sequence)):
+    for idx in tqdm(range(len(sequence)), leave=True, desc="Processing"):
         frameId = idx + 1
         img, depthmap, flowmap, tboxes, bboxes = sequence[idx]
         tracks = tracker(img, depthmap, flowmap, bboxes)
+        results[frameId] = tracks
         # Draw tracks (box + ID) on video frame
-        frame = np.array(inverse(img))
-        for track in tracks:
-            tid = track['id']
-            box = track['box']
-            text = f"ID:{tid}"
-            color = get_color(tid)
-            draw_box(frame, box, color=color)
-            draw_text(frame, text, position=tuple(box[:2]), bgcolor=color)
+        if args['export']:
+            frame = np.array(inverse(img))
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            for track in tracks:
+                tid = track['id']
+                box = track['box']
+                text = f"ID:{tid}"
+                color = get_color(tid)
+                draw_box(frame, box, color=color)
+                draw_text(frame, text, position=tuple(box[:2]), bgcolor=color)
+            writer.write(frame)
+
+    # Save tracking result
+    export_results(results, output_dir, sequence.name)
+
+    # Save tracking video
+    if args['export']:
+        writer.release()
 
 
 if __name__ == "__main__":
@@ -68,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", action='store_true', help="show information on terminal")
     parser.add_argument("--display", action='store_true', help="show processing result with opencv")
     parser.add_argument("--export", action='store_true', help="save processing result to process.mp4")
+    parser.add_argument("--output", default='output', help="output directoty")
 
     args = vars(parser.parse_args())
     main(args)

@@ -86,6 +86,7 @@ class MOTSequence:
         seqpath = osp.join(root, 'seqinfo.ini')
         parser = configparser.ConfigParser()
         parser.read(seqpath)
+        self.name = parser['Sequence']['name']
         self.fps = int(parser['Sequence']['framerate'])
         self.imgWidth = int(parser['Sequence']['imwidth'])
         self.imgHeight = int(parser['Sequence']['imheight'])
@@ -154,7 +155,10 @@ class MOTSequence:
     def __str__(self):
         content = (
             f"[Sequence]\n"
-            f" - name: {self.root}\n"
+            f" - name: {self.name}\n"
+            f" - fps: {self.fps}\n"
+            f" - width: {self.imgWidth}\n"
+            f" - height: {self.imgHeight}\n"
             f" - length: {self.__len__()}\n"
             f" - detector: {self.detector}\n"
             f" - min_visibility: {self.min_visibility}\n"
