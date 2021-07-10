@@ -84,7 +84,7 @@ class DeepTrack(BaseTrack):
         bbox1Area = (x12-x11+1)*(y12-y11+1)
         bbox2Area = (x22-x21+1)*(y22-y21+1)
 
-        iou = interArea / (bbox1Area+bbox2Area-interArea)
+        iou = interArea / (bbox1Area+np.transpose(bbox2Area)-interArea)
         return (1 - iou).reshape(-1)
 
     def cos_dist(self, features):

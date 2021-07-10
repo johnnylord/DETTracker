@@ -75,11 +75,15 @@ class MOTSequence:
             detector == 'default'                   # MOT16
             or detector == 'sdp'                    # MOT17-SDP
             or detector == 'dpm'                    # MOT17-DPM
-            or detector == 'frcnn'            # MOT17-FRCNN
-            or detector == 'processed'              # MOT16
+            or detector == 'frcnn'                  # MOT17-FRCNN
+            or detector == 'default-processed'      # MOT16
             or detector == 'sdp-processed'          # MOT17-SDP (ReID)
             or detector == 'dpm-processed'          # MOT17-DPM (ReID)
-            or detector == 'frcnn-processed'  # MOT17-FRCNN (ReID)
+            or detector == 'frcnn-processed'        # MOT17-FRCNN (ReID)
+            or detector == 'default-processed-market1501'   # MOT16
+            or detector == 'sdp-processed-market1501'       # MOT17-SDP (ReID)
+            or detector == 'dpm-processed-market1501'       # MOT17-DPM (ReID)
+            or detector == 'frcnn-processed-market1501'     # MOT17-FRCNN (ReID)
             )
 
         # Read seqinfo.ini

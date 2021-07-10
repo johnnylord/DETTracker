@@ -14,8 +14,8 @@ def main(args):
         file_gt = osp.join(seq_gt, 'gt', 'gt.txt')
         file_pd = osp.join(seq_pd, f'{osp.basename(seq_pd)}.txt')
 
-        df_gt = mm.io.loadtxt(args['gt'])
-        df_pred = mm.io.loadtxt(args['pred'])
+        df_gt = mm.io.loadtxt(file_gt)
+        df_pred = mm.io.loadtxt(file_pd)
         acc = mm.utils.compare_to_groundtruth(df_gt, df_pred, 'iou', distth=0.5)
         accs.append(acc)
 
