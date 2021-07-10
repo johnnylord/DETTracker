@@ -25,7 +25,7 @@ class BaseTrack(ABC):
                               [hit]
                             +------+
                             v      |
-    3 continous [hit]     +--------+-+    5 continuous [miss]
+    3 continous [hit]     +--------+-+    3 continuous [miss]
             +------------>| Tracked  +-------------+
             |             +----------+             v   +----+
        +----+-----+             ^             +--------++   |
@@ -41,7 +41,7 @@ class BaseTrack(ABC):
     """
     TRACK_COUNTER = 0
 
-    def __init__(self, n_init=3, n_lost=5, n_dead=30):
+    def __init__(self, n_init=3, n_lost=3, n_dead=30):
         # State transition threshold
         self.n_init = n_init
         self.n_lost = n_lost
@@ -55,7 +55,22 @@ class BaseTrack(ABC):
         self._miss_count = 0
         self._recent_actions = []
         # Update static variable
-        self.TRACK_COUNTER += 1
+        BaseTrack.TRACK_COUNTER += 1
+
+    def __str__(self):
+        if self.state == TrackState.TRACKED:
+            state = "tracked"
+        elif self.state == TrackState.LOST:
+            state = "lost"
+        elif self.state == TrackState.TENTATIVE:
+            state = "tentative"
+        else:
+            state = "dead"
+        content = f"ID:{self.id}, State:{state}, Age:{self.priority}, {self._hit_count}/{self.n_init}"
+        return content
+
+    def __repr__(self):
+        return self.__str__()
 
     def hit(self):
         # Renew priortiy level
@@ -84,7 +99,7 @@ class BaseTrack(ABC):
         self.priority -= 1
         # Update Private members
         self._miss_count += 1
-        self._recent_actions.append(TrackState.MISS)
+        self._recent_actions.append(TrackAction.MISS)
         if len(self._recent_actions) > self.n_dead:
             self._recent_actions = self._recent_actions[1:]
         # Update Track State
