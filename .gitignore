@@ -1,4 +1,5 @@
 run/
+output/
 __pycache__/
 
 download/*
