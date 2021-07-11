@@ -5,6 +5,7 @@ from track.base import TrackState
 from track.motion.kalman3d import chi2inv95
 from track.deepsortplus import ContextTrack
 from track.utils.convert import tlwh_to_tlbr
+from utils.sample import sample_mean
 
 
 class DeepSORTPlus:
@@ -67,10 +68,20 @@ class DeepSORTPlus:
             track.predict()
 
         # Extract detected objects
-        boxes = np.array([ tlwh_to_tlbr(box[1:1+4]) for box in bboxes ])# (N, 4)
-        features = np.array([ box[-128:] for box in bboxes ])           # (N, 128)
+        boxes = np.array([
+                    tlwh_to_tlbr(box[1:1+4])
+                    for box in bboxes
+                    if int(box[3])*int(box[4]) != 0
+                    ])                                                  # (N, 4)
+        boxes = self._add_depth(depthmap, boxes)                        # (N, 5)
+        boxes = self._add_vxvy(flowmap, boxes)                          # (N, 7)
+        features = np.array([
+                    box[-128:]
+                    for box in bboxes
+                    if int(box[3])*int(box[4]) != 0
+                    ])                                                  # (N, 128)
         if len(boxes) > 0 and len(features) > 0:
-            observations = np.concatenate([ boxes, features ], axis=1)  # (N, 132)
+            observations = np.concatenate([ boxes, features ], axis=1)  # (N, 135)
         else:
             observations = np.array([])
 
@@ -114,8 +125,8 @@ class DeepSORTPlus:
 
         # Update matched tracks and observations
         for track, observation in match_pairs:
-            box = observation[:4]
-            feature = observation[4:]
+            box = observation[:7]
+            feature = observation[7:]
             track.update(box)
             track.update_feature(feature)
             track.hit()
@@ -126,9 +137,12 @@ class DeepSORTPlus:
 
         # Create new tracks
         for observation in observations:
-            box = observation[:4]
-            feature = observation[4:]
-            track = DeepTrack(box, feature, pool_size=self.pool_size,
+            box = observation[:7]
+            feature = observation[7:]
+            track = ContextTrack(box, feature,
+                            n_levels=self.n_levels,
+                            max_depth=self.max_depth,
+                            pool_size=self.pool_size,
                             n_init=self.n_init,
                             n_lost=self.n_lost,
                             n_dead=self.n_dead)
@@ -172,16 +186,16 @@ class DeepSORTPlus:
         elif len(tracks) == 0 and len(observations) == 0:
             return [], [], np.array([])
 
-        bboxes = observations[:, :4]
-        features = observations[:, 4:]
+        bboxes = observations[:, :7]
+        features = observations[:, 7:]
 
         # Concstruct cost matrix
         if mode == 'cos':
             cost_mat = np.array([ t.cos_dist(features) for t in tracks ])
         elif mode == 'iou':
-            cost_mat = np.array([ t.iou_dist(bboxes) for t in tracks ])
+            cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         gate_mat = np.array([ t.square_maha_dist(bboxes) for t in tracks ])
-        cost_mat[gate_mat > chi2inv95[4]] = 10000
+        cost_mat[gate_mat > chi2inv95[7]] = 10000
 
         # Perform greedy matching algorithm
         tindices, oindices = linear_sum_assignment(cost_mat)
@@ -201,3 +215,81 @@ class DeepSORTPlus:
         unmatch_observations = [ observations[i] for i in unmatch_oindices ]
 
         return pairs, unmatch_tracks, np.array(unmatch_observations)
+
+    def _add_depth(self, depthmap, boxes):
+        """Append depth (z) dimension to existing boxes
+
+        Args:
+            depthmap (tensor): tensor of shape (3, H, W)
+            boxes (ndarray): bounding boxes of shape (N, 4)
+
+        Returns:
+            a new set of boxes of shape (N, 5)
+
+        NOTE:
+            The box format of input is (xmin, ymin, xmax, ymax)
+        """
+        new_boxes = []
+        for box in boxes:
+            # Extract depth pixels in a single array
+            xmin = int(box[0])
+            ymin = int(box[1])
+            xmax = int(box[2])
+            ymax = int(box[3])
+            depth_dist = depthmap[0, ymin:ymax, xmin:xmax].numpy().reshape(-1)
+            # Apply median filter to extract out closer pixel
+            depth_median = np.median(depth_dist)
+            depth_dist = depth_dist[np.where(depth_dist > depth_median)]
+            # Apply sample mean with central limit theroem
+            _, mu = sample_mean(depth_dist, rounds=100)
+            # Convert depth pixel to depth value in pseudo depth space
+            depth = (1-mu)*self.max_depth
+            # Add new box
+            new_boxes.append(box.tolist()+[depth])
+
+        return np.array(new_boxes)
+
+    def _add_vxvy(self, flowmap, boxes):
+        """Append xy motion vector (vx, vy) to existing boxes
+
+        Args:
+            flowmap (tensor): tensor of shape (H, W, 2)
+            boxes (ndarray): bounding boxes of shape (N, 5)
+
+        Returns:
+            a new set of boxes of shape (N, 7)
+
+        NOTE:
+            The box format of input is (xmin, ymin, xmax, ymax, z)
+        """
+        new_boxes = []
+        for box in boxes:
+            # Extract xy flow in seperated arrays
+            xmin = int(box[0])
+            ymin = int(box[1])
+            xmax = int(box[2])
+            ymax = int(box[3])
+            x_dist = flowmap[ymin:ymax, xmin:xmax, 0].numpy().reshape(-1)
+            y_dist = flowmap[ymin:ymax, xmin:xmax, 1].numpy().reshape(-1)
+            # Filter out possible motion vectors
+            condition = np.where((
+                            (x_dist > 0.1)
+                            |(x_dist < -0.1)
+                            |(y_dist > 0.1)
+                            |(y_dist < -0.1)
+                        ))
+            x_filter_dist = x_dist[condition]
+            y_filter_dist = y_dist[condition]
+            if len(x_filter_dist)/len(x_dist) > 0.4:
+                # Apply sample mean with central limit theroem
+                try:
+                    _, vx = sample_mean(x_filter_dist, rounds=100)
+                    _, vy = sample_mean(y_filter_dist, rounds=100)
+                except Exception as e:
+                    vx, vy = 0., 0.
+            else:
+                vx, vy = 0., 0.
+            # Add new box
+            new_boxes.append(box.tolist()+[vx, vy])
+
+        return np.array(new_boxes)

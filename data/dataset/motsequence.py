@@ -150,7 +150,15 @@ class MOTSequence:
             names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
             names += extra_cols
             bboxes = dets[names].to_numpy()
-            if len(bboxes) > 0:
+            if (
+                len(bboxes) > 0
+                and (
+                    detector == 'default'
+                    or detector == 'sdp'
+                    or detector == 'dpm'
+                    or detector == 'frcnn'
+                )
+            ):
                 bboxes[:, 1] -= 1
                 bboxes[:, 2] -= 1
             bboxes = bboxes.tolist()

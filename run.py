@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 import argparse
+import pickle
 
 import cv2
 import numpy as np
@@ -9,6 +10,7 @@ from tqdm import tqdm
 
 from data.dataset.motsequence import MOTDSequence
 from tracker.deepsort import DeepSORT
+from tracker.deepsortplus import DeepSORTPlus
 from utils.display import get_color, draw_box, draw_text
 from utils.evaluation import export_results
 
@@ -35,10 +37,13 @@ def main(args):
                                 (sequence.imgWidth, sequence.imgHeight))
 
     # Load Trackor
-    tracker = DeepSORT(
+    # tracker = DeepSORT(
+    tracker = DeepSORTPlus(
                 n_init=args['n_init'],
                 n_lost=args['n_lost'],
                 n_dead=args['n_dead'],
+                n_levels=args['n_levels'],
+                max_depth=args['max_depth'],
                 pool_size=args['pool_size'],
                 iou_dist_threhsold=args['iou_dist_threhsold'],
                 cos_dist_threhsold=args['cos_dist_threhsold'])
@@ -71,6 +76,10 @@ def main(args):
     if args['export']:
         writer.release()
 
+    # Save tracking intermediate product
+    with open(osp.join(output_dir, 'intermediate.pkl'), 'wb') as f:
+        pickle.dump(results, f)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -89,6 +98,9 @@ if __name__ == "__main__":
     # Assoication setting
     parser.add_argument("--iou_dist_threhsold", default=0.3, type=float, help="gating threshold for iou distance")
     parser.add_argument("--cos_dist_threhsold", default=0.3, type=float, help="gating threshold for cos distance")
+    # Pseudo depth space setting
+    parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
+    parser.add_argument("--n_levels", default=20, type=float, help="number of intervals between depth range")
     # Runtime setting
     # =========================================================================
     parser.add_argument("--verbose", action='store_true', help="show information on terminal")

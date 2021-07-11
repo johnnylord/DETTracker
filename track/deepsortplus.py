@@ -24,7 +24,7 @@ class ContextTrack(BaseTrack):
         # Initialize motion vector
         x, y, a, h = tlbr_to_xyah(box[:4])
         z, vx, vy = box[4:].tolist()
-        motion = np.array([ x, y, vx, vy, z, a, h ])
+        motion = np.array([ x, y, z, vx, vy, a, h ])
         self.mean, self.covar = self.kf.initiate(motion)
         # initilaize reid feature sets
         self.feature_pool = [ feature ]
@@ -40,14 +40,18 @@ class ContextTrack(BaseTrack):
         else:
             state = "dead"
         # Content of track
-        mean = self.mean[:4]
-        xyah = [ mean[0], mean[1], mean[5], mean[6] ]
+        mean, covar = self.kf.project(self.mean, self.covar)
+        box = xyah_to_tlbr([ mean[0], mean[1], mean[5], mean[6] ])
+        xyz = mean[:3]
+        var = covar[:3, :3]
+        motion = mean[3:5]
         track = {
             'id': self.id,
             'state': state,
-            'box': xyah_to_tlbr(xyah),
-            'depth': self.mean[4],
-            'motion': [ self.mean[2], self.mean[3] ],
+            'box': box,
+            'xyz': xyz,
+            'var': var,
+            'motion': motion,
             }
         return track
 
@@ -63,7 +67,7 @@ class ContextTrack(BaseTrack):
         # Convert observation format
         x, y, a, h = tlbr_to_xyah(box[:4])
         z, vx, vy = box[4:].tolist()
-        observation = np.array([ x, y, vx, vy, z, a, h ])
+        observation = np.array([ x, y, z, vx, vy, a, h ])
         # Update state with observatio
         mean, covar = self.kf.update(mean=self.mean,
                                     covariance=self.covar,
@@ -82,7 +86,7 @@ class ContextTrack(BaseTrack):
         """Return iou distance vectors between track and bboxes
 
         Args:
-            bboxes (np.ndarray): array of shape (N, 7)
+            bboxes (np.ndarray): array of shape (N, 4)
 
         Return:
             A N dimensional iou distance vector
@@ -92,7 +96,6 @@ class ContextTrack(BaseTrack):
         """
         xyah = [ self.mean[0], self.mean[1], self.mean[5], self.mean[6] ]
         bbox = np.array([xyah_to_tlbr(xyah)])
-        bboxes = bboxes[:, :4]
 
         x11, y11, x12, y12 = np.split(bbox, 4, axis=1)
         x21, y21, x22, y22 = np.split(bboxes, 4, axis=1)
@@ -141,8 +144,8 @@ class ContextTrack(BaseTrack):
         observations = []
         for bbox in bboxes:
             x, y, a, h = tlbr_to_xyah(bbox[:4])
-            z, vx, vy = box[4:].tolist()
-            motion = np.array([ x, y, vx, vy, z, a, h ])
+            z, vx, vy = bbox[4:].tolist()
+            motion = np.array([ x, y, z, vx, vy, a, h ])
             observations.append(motion)
         observations = np.array(observations)
 
@@ -151,7 +154,7 @@ class ContextTrack(BaseTrack):
 
         # Apply mahalonobis distance formula
         cholesky_factor = np.linalg.cholesky(covar)
-        d = xyahs - mean
+        d = observations - mean
         z = scipy.linalg.solve_triangular(cholesky_factor, d.T,
                                         check_finite=False,
                                         overwrite_b=True,
