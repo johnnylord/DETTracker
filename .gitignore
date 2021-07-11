@@ -2,6 +2,7 @@ run/
 output/
 answer/
 __pycache__/
+.ipynb_checkpoints/
 
 download/*
 !download/.gitkeep
