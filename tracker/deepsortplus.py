@@ -67,6 +67,9 @@ class DeepSORTPlus:
         for track in self.tracks:
             track.predict()
 
+        # Determine Occlusion status
+        self._determine_track_occlusion()
+
         # Extract detected objects
         boxes = np.array([
                     tlwh_to_tlbr(box[1:1+4])
@@ -236,14 +239,10 @@ class DeepSORTPlus:
             ymin = int(box[1])
             xmax = int(box[2])
             ymax = int(box[3])
-            depth_dist = depthmap[0, ymin:ymax, xmin:xmax].numpy().reshape(-1)
+            depth_dist = depthmap[0, ymin:ymax, int(xmin+xmax)//2].numpy().reshape(-1)
             # Apply median filter to extract out closer pixel
-            depth_median = np.median(depth_dist)
-            depth_dist = depth_dist[np.where(depth_dist > depth_median)]
-            # Apply sample mean with central limit theroem
-            _, mu = sample_mean(depth_dist, rounds=100)
-            # Convert depth pixel to depth value in pseudo depth space
-            depth = (1-mu)*self.max_depth
+            median = np.median(depth_dist)
+            depth = (1-median)*self.max_depth
             # Add new box
             new_boxes.append(box.tolist()+[depth])
 
@@ -273,10 +272,10 @@ class DeepSORTPlus:
             y_dist = flowmap[ymin:ymax, xmin:xmax, 1].numpy().reshape(-1)
             # Filter out possible motion vectors
             condition = np.where((
-                            (x_dist > 0.1)
-                            |(x_dist < -0.1)
-                            |(y_dist > 0.1)
-                            |(y_dist < -0.1)
+                            (x_dist > 0.05)
+                            |(x_dist < -0.05)
+                            |(y_dist > 0.05)
+                            |(y_dist < -0.05)
                         ))
             x_filter_dist = x_dist[condition]
             y_filter_dist = y_dist[condition]
@@ -293,3 +292,22 @@ class DeepSORTPlus:
             new_boxes.append(box.tolist()+[vx, vy])
 
         return np.array(new_boxes)
+
+    def _determine_track_occlusion(self):
+        tracked = [ track for
+                    track in self.tracks
+                    if track.state == TrackState.TRACKED ]
+        confirm = [ track for
+                    track in self.tracks
+                    if track.state != TrackState.TENTATIVE ]
+        for track in confirm:
+            for target in tracked:
+                if target == track or target.depth >= track.depth:
+                    continue
+                xmin1, _, xmax1, _ = track.tlbr
+                xmin2, _, xmax2, _ = target.tlbr
+                xmin, xmax = max([xmin1, xmin2]), min([xmax1, xmax2])
+                inter = max([xmax-xmin, 0])
+                union = max([xmax1, xmax2]) - min([xmin1, xmin2])
+                if (inter/union) > 0.2:
+                    track.occluded = True

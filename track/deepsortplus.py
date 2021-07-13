@@ -28,6 +28,17 @@ class ContextTrack(BaseTrack):
         self.mean, self.covar = self.kf.initiate(motion)
         # initilaize reid feature sets
         self.feature_pool = [ feature ]
+        self.occluded = False
+
+    @property
+    def tlbr(self):
+        mean = self.mean
+        tlbr = xyah_to_tlbr([ mean[0], mean[1], mean[5], mean[6] ])
+        return tlbr
+
+    @property
+    def depth(self):
+        return self.mean[2]
 
     @property
     def content(self):
@@ -52,6 +63,7 @@ class ContextTrack(BaseTrack):
             'xyz': xyz,
             'var': var,
             'motion': motion,
+            'occluded': self.occluded,
             }
         return track
 
@@ -69,11 +81,9 @@ class ContextTrack(BaseTrack):
         z, vx, vy = box[4:].tolist()
         observation = np.array([ x, y, z, vx, vy, a, h ])
         # Update state with observatio
-        mean, covar = self.kf.update(mean=self.mean,
-                                    covariance=self.covar,
-                                    observation=observation)
-        self.mean = mean
-        self.covar = covar
+        self.mean, self.covar = self.kf.update(mean=self.mean,
+                                            covariance=self.covar,
+                                            observation=observation)
         return self.mean, self.covar
 
     def update_feature(self, feature):

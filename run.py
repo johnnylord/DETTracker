@@ -100,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument("--cos_dist_threhsold", default=0.3, type=float, help="gating threshold for cos distance")
     # Pseudo depth space setting
     parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
-    parser.add_argument("--n_levels", default=20, type=float, help="number of intervals between depth range")
+    parser.add_argument("--n_levels", default=30, type=float, help="number of intervals between depth range")
     # Runtime setting
     # =========================================================================
     parser.add_argument("--verbose", action='store_true', help="show information on terminal")

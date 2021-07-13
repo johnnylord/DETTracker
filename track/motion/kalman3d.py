@@ -54,7 +54,7 @@ class KalmanFilter3D:
         _std_weight_acc (float): uncertainty of the (ax, ay)
         _std_weight_dep (float): uncertainty of the (z, vz)
     """
-    def __init__(self, max_depth=5, n_levels=20):
+    def __init__(self, max_depth=5, n_levels=30):
         self.max_depth = max_depth
         self.n_levels = n_levels
 
@@ -82,9 +82,9 @@ class KalmanFilter3D:
         # state estimation. These weights control the amount of uncertainty in
         # the model. This is a bit hacky
         self._std_weight_pos = 1. / 20
-        self._std_weight_vel = 1. / 320
-        self._std_weight_acc = 1. / 2048
-        self._std_weight_dep = max_depth / n_levels
+        self._std_weight_vel = 1. / 160
+        self._std_weight_acc = 1. / 640
+        self._std_weight_dep = max_depth / n_levels / 100
 
     def initiate(self, observation):
         """Initialize state of kalman filter
@@ -110,7 +110,7 @@ class KalmanFilter3D:
         std = [
             2 * self._std_weight_pos * observation[6],      # x ~= 50 pixel
             2 * self._std_weight_pos * observation[6],      # y ~= 50 pixel
-            2 * self._std_weight_dep,                       # z
+            self.max_depth / self.n_levels,                 # z
             10 * self._std_weight_vel * observation[6],     # vx ~= 15 pixel
             10 * self._std_weight_vel * observation[6],     # vy ~= 15 pixel
             1e-2,                                           # a
@@ -140,7 +140,7 @@ class KalmanFilter3D:
         std = [
             self._std_weight_pos * mean[6],     # x ~= 50 pixel
             self._std_weight_pos * mean[6],     # y ~= 50 pixel
-            self._std_weight_dep,               # z
+            self.max_depth / self.n_levels,     # z
             self._std_weight_vel * mean[6],     # vx ~= 15 pixel
             self._std_weight_vel * mean[6],     # vy ~= 15 pixel
             1e-2,                               # a
@@ -176,7 +176,7 @@ class KalmanFilter3D:
         std = [
             self._std_weight_pos * mean[6],     # x ~= 50 pixel
             self._std_weight_pos * mean[6],     # y ~= 50 pixel
-            self._std_weight_dep,               # z
+            self.max_depth / self.n_levels,     # z
             self._std_weight_vel * mean[6],     # vx ~= 15 pixel
             self._std_weight_vel * mean[6],     # vy ~= 15 pixel
             1e-1,                               # a
