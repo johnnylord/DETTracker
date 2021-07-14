@@ -45,7 +45,7 @@ def main(args):
         print(f"Process sequence with detector {detector}")
         result = {}
         for idx in tqdm(range(len(sequence))):
-            img, tboxes, bboxes = sequence[idx]
+            img, tboxes, bboxes, masks = sequence[idx]
             # Filter out bboxes with small area
             bboxes = [ box for box in bboxes if int(box[3])*int(box[4]) > 0 ]
             # Compute box embedding

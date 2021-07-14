@@ -83,7 +83,7 @@ class MOTreID(MOTSequence):
         seq_length = super().__len__()
         for idx in range(seq_length):
             print(f"Build Profile {idx}/{seq_length}", end="\r\b")
-            img, tboxes, bboxes = super().__getitem__(idx)
+            img, tboxes, bboxes, masks = super().__getitem__(idx)
 
             for box in tboxes:
                 tid = int(box[0])

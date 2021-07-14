@@ -2,8 +2,9 @@ import os
 import os.path as osp
 import configparser
 
-import pandas as pd
+import cv2
 import numpy as np
+import pandas as pd
 from PIL import Image
 import torch
 import torchvision.transforms as T
@@ -37,6 +38,9 @@ class MOTSequence:
         'sdp-processed-market1501': 'det-sdp-processed-market1501.txt',
         'dpm-processed-market1501': 'det-dpm-processed-market1501.txt',
         'frcnn-processed-market1501': 'det-frcnn-processed-market1501.txt',
+        # =========== ReID with Mask =====
+        'default-processed-mask': 'det-processed-mask.txt',
+        'default-processed-market1501-mask': 'det-processed-market1501-mask.txt',
     }
     GT_TABLE = {
         # =========== Detection Only ===========
@@ -54,6 +58,9 @@ class MOTSequence:
         'sdp-processed-market1501': 'gt-sdp.txt',
         'dpm-processed-market1501': 'gt-dpm.txt',
         'frcnn-processed-market1501': 'gt-frcnn.txt',
+        # =========== ReID with Mask =====
+        'default-processed-mask': 'gt.txt',
+        'default-processed-market1501-mask': 'gt.txt',
     }
     def __init__(
             self,
@@ -76,14 +83,19 @@ class MOTSequence:
             or detector == 'sdp'                    # MOT17-SDP
             or detector == 'dpm'                    # MOT17-DPM
             or detector == 'frcnn'                  # MOT17-FRCNN
+            # ===================================================
             or detector == 'default-processed'      # MOT16
             or detector == 'sdp-processed'          # MOT17-SDP (ReID)
             or detector == 'dpm-processed'          # MOT17-DPM (ReID)
             or detector == 'frcnn-processed'        # MOT17-FRCNN (ReID)
+            # =================================================================
             or detector == 'default-processed-market1501'   # MOT16
             or detector == 'sdp-processed-market1501'       # MOT17-SDP (ReID)
             or detector == 'dpm-processed-market1501'       # MOT17-DPM (ReID)
             or detector == 'frcnn-processed-market1501'     # MOT17-FRCNN (ReID)
+            # =================================================================
+            or detector == 'default-processed-mask'
+            or detector == 'default-processed-market1501-mask'
             )
 
         # Read seqinfo.ini
@@ -139,7 +151,9 @@ class MOTSequence:
             columns = MOTSequence.MOT16DET_COLUMNS + list(df.columns[len(MOTSequence.MOT16DET_COLUMNS):])
             df.columns = columns
             extra_cols = columns[len(MOTSequence.MOT16DET_COLUMNS):]
+
         # Process Detection
+        self.all_masks = {}
         self.all_bboxes = {}
         for imgFile in self.imgs:
             frameId = int(osp.basename(imgFile).split(".")[0])
@@ -148,7 +162,10 @@ class MOTSequence:
                             & (df['Conf'] >= self.min_conf_threshold)
                         )]
             names = [ "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
-            names += extra_cols
+            if 'mask' not in detector:
+                names += extra_cols
+            else:
+                names += extra_cols[:-1]
             bboxes = dets[names].to_numpy()
             if (
                 len(bboxes) > 0
@@ -163,6 +180,16 @@ class MOTSequence:
                 bboxes[:, 2] -= 1
             bboxes = bboxes.tolist()
             self.all_bboxes[frameId] = bboxes
+
+            if 'mask' not in detector:
+                self.all_masks[frameId] = []
+                continue
+
+            self.all_masks[frameId] = []
+            for mask_name in dets[extra_cols[-1]]:
+                mask_path = osp.join(osp.dirname(detfile), mask_name)
+                mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+                self.all_masks[frameId].append(mask)
 
     def __str__(self):
         content = (
@@ -191,7 +218,8 @@ class MOTSequence:
         frameId = int(osp.basename(imgPath).split(".")[0])
         tboxes = self.all_tboxes[frameId] if self.mode == 'train' else []
         bboxes = self.all_bboxes[frameId]
-        return img, tboxes, bboxes
+        masks = self.all_masks[frameId]
+        return img, tboxes, bboxes, masks
 
 
 class MOTDSequence(MOTSequence):
@@ -212,7 +240,7 @@ class MOTDSequence(MOTSequence):
             assert imgFile == mapFile == floFile
 
     def __getitem__(self, idx):
-        img, tboxes, bboxes = super().__getitem__(idx)
+        img, tboxes, bboxes, masks = super().__getitem__(idx)
 
         # Extract depth map
         mapPath = self.depthmaps[idx]
@@ -224,7 +252,7 @@ class MOTDSequence(MOTSequence):
         flow = self._readflow(floPath)
         flow = torch.tensor(flow)
 
-        return img, depthmap, flow, tboxes, bboxes
+        return img, depthmap, flow, tboxes, bboxes, masks
 
     def _readflow(self, floPath):
         """Read .flo file in middlebury format"""
@@ -249,7 +277,7 @@ if __name__ == "__main__":
 
     print("Depth Sequence")
     sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn-processed', mode='train')
-    img, depthmap, flowmap, tboxes, bboxes = sequence[3]
+    img, depthmap, flowmap, tboxes, bboxes, masks = sequence[3]
     print(img.shape, img.min(), img.max())
     print(depthmap.shape, depthmap.min(), depthmap.max())
     print(flowmap.shape, flowmap.min(), flowmap.max())
