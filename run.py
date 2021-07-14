@@ -53,8 +53,8 @@ def main(args):
     inverse = T.ToPILImage()
     for idx in tqdm(range(len(sequence)), leave=True, desc="Processing"):
         frameId = idx + 1
-        img, depthmap, flowmap, tboxes, bboxes = sequence[idx]
-        tracks = tracker(img, depthmap, flowmap, bboxes)
+        img, depthmap, flowmap, tboxes, bboxes, masks = sequence[idx]
+        tracks = tracker(img, depthmap, flowmap, bboxes, masks)
         results[frameId] = tracks
         # Draw tracks (box + ID) on video frame
         if args['export']:

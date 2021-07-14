@@ -33,7 +33,7 @@ class DeepSORTPlus:
         # Tracker state
         self.tracks = []
 
-    def __call__(self, img, depthmap, flowmap, bboxes):
+    def __call__(self, img, depthmap, flowmap, bboxes, masks):
         """Perform tracking on per frame basis
 
         Argument:
@@ -41,6 +41,7 @@ class DeepSORTPlus:
             depthmap (tensor): tensor of shape (3, H, W)
             flowmap (tensor): tensor of shape (H, W, 2)
             bboxes (list): list of bounding boxes
+            masks (list): list of object masks related bboxes (H, W)
 
         Format of depthmap:
             The value range of depth map is between 0 and 1, you can multiply
