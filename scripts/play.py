@@ -103,7 +103,10 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sequence", required=True, help="sequence directory")
-    parser.add_argument("--detector", default='frcnn', help="default detector")
+    parser.add_argument("--detector",
+            default='default-processed-mask',
+            choices=['default-processed-mask', 'default-processed-market1501-mask'],
+            help="default detector")
     parser.add_argument("--silent", action='store_true')
     parser.add_argument("--export", action='store_true')
     args = vars(parser.parse_args())
