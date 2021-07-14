@@ -9,7 +9,7 @@ import torchvision.transforms as T
 
 from data.dataset.motsequence import MOTDSequence
 from utils.flow import flow2img, torchflow2img
-from utils.display import draw_box, draw_text, get_color
+from utils.display import draw_box, draw_mask, draw_text, get_color, get_color_mask
 
 
 def main(args):
@@ -39,7 +39,7 @@ def main(args):
     inverse = T.ToPILImage()
     for i in range(len(sequence)):
         print(f"Process {i}/{len(sequence)}", end='\r\b')
-        img, depthmap, flow, tboxes, bboxes = sequence[i]
+        img, depthmap, flow, tboxes, bboxes, masks = sequence[i]
 
         # Convert images to numpy frames
         img = np.array(inverse(img))
@@ -68,13 +68,15 @@ def main(args):
                 draw_box(gt_img, tlbr, color=color)
                 draw_text(gt_img, text, tlbr[:2], bgcolor=color)
 
-        # Draw bounding box on image
-        for box in bboxes:
+        # Draw bounding box and mask on image
+        for box, mask in zip(bboxes, masks):
             tid = int(box[0])
             color = get_color(tid)
+            color_mask = get_color_mask(mask)
             tlwh = box[1:1+4]
             tlbr = [ tlwh[0], tlwh[1], tlwh[0]+tlwh[2], tlwh[1]+tlwh[3] ]
             draw_box(det_img, tlbr, color=color)
+            draw_mask(det_img, tlbr, color_mask)
 
         if not args['silent']:
             cv2.imshow('GT', gt_img)

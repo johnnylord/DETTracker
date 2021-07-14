@@ -11,6 +11,22 @@ def get_color(tag, hue_step=0.41):
     r, g, b = colorsys.hsv_to_rgb(h, 1., v)
     return int(r*255), int(255*g), int(255*b)
 
+def get_color_mask(mask, color=(0, 255, 0)):
+    r = np.zeros_like(mask).astype(np.uint8)
+    g = np.zeros_like(mask).astype(np.uint8)
+    b = np.zeros_like(mask).astype(np.uint8)
+    r[mask >= 200] = color[0]
+    g[mask >= 200] = color[1]
+    b[mask >= 200] = color[2]
+    return np.stack([r, g, b], axis=2)
+
+def draw_mask(frame, box, mask):
+    canvas = np.zeros_like(frame).astype(np.uint8)
+    xmin, ymin = tuple([ int(v) for v in box[:2] ])
+    xmax, ymax = xmin+mask.shape[1], ymin+mask.shape[0]
+    canvas[ymin:ymax, xmin:xmax, :] = mask
+    frame[:, :, :] = cv2.addWeighted(frame, 1, canvas, 0.5, 0)
+
 def draw_box(frame, box, color=(0, 0, 255), thickness=2):
     """Draw bounding box on the frame
 
