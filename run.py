@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # =========================================================================
     parser.add_argument("--sequence", required=True, help="mot sequence trackor will run on")
     parser.add_argument("--detector", default='default', type=str, help="which detector to use")
-    parser.add_argument("--min_obj_conf", default=0.8, type=float, help="detected object confidence threshold")
+    parser.add_argument("--min_obj_conf", default=0.4, type=float, help="detected object confidence threshold")
     # Tracker setting
     # =========================================================================
     # Track Management
