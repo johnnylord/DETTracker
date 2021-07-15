@@ -19,8 +19,8 @@ from model.resnet import resnet50_reid
 LOOKUP = {
     # Reid with MOT
     'default': [
-        'det-processed-mask.txt',
-        'det-processed-market1501-mask.txt',
+        'det-processed-mask-all.txt',
+        'det-processed-market1501-mask-all.txt',
         ],
 }
 
@@ -204,20 +204,23 @@ def main(args):
                             new_resolution=(sequence.imgHeight, sequence.imgWidth))
 
         # Perfrom Assignment with IoU matrix
-        if len(bboxes) == 0 or len(mboxes) == 0:
+        if len(mboxes) == 0:
             continue
-        bboxes = np.array(bboxes)[:, 1:1+4]
-        pairs = box_matching(bboxes, mboxes, threshold=0.3)
+        # if len(bboxes) == 0 or len(mboxes) == 0:
+            # continue
+        # bboxes = np.array(bboxes)[:, 1:1+4]
+        # pairs = box_matching(bboxes, mboxes, threshold=0.3)
 
         # Compute reid with masked objects
         eboxes = []
         emasks = []
         embeds1 = []
         embeds2 = []
-        for pair in pairs:
-            bbox = bboxes[pair[0]]
-            mbox = mboxes[pair[1]]
-            mask = masks[pair[1]]
+        for mbox, mask in zip(mboxes, masks):
+        # for pair in pairs:
+            # bbox = bboxes[pair[0]]
+            # mbox = mboxes[pair[1]]
+            # mask = masks[pair[1]]
 
             # Compute reid
             xmin = int(mbox[0])

@@ -25,42 +25,22 @@ class MOTSequence:
     DETECTOR_TABLE = {
         # =========== Detection Only ===========
         'default': 'det.txt',
-        'sdp': 'det-sdp.txt',
-        'dpm': 'det-dpm.txt',
-        'frcnn': 'det-frcnn.txt',
-        # =========== ReID with MOT ============
         'default-processed': 'det-processed.txt',
-        'sdp-processed': 'det-sdp-processed.txt',
-        'dpm-processed': 'det-dpm-processed.txt',
-        'frcnn-processed': 'det-frcnn-processed.txt',
-        # =========== ReID with Market1501 =====
-        'default-processed-market1501': 'det-processed-market1501.txt',
-        'sdp-processed-market1501': 'det-sdp-processed-market1501.txt',
-        'dpm-processed-market1501': 'det-dpm-processed-market1501.txt',
-        'frcnn-processed-market1501': 'det-frcnn-processed-market1501.txt',
-        # =========== ReID with Mask =====
         'default-processed-mask': 'det-processed-mask.txt',
+        'default-processed-mask-all': 'det-processed-mask-all.txt',
+        'default-processed-market1501': 'det-processed-market1501.txt',
         'default-processed-market1501-mask': 'det-processed-market1501-mask.txt',
+        'default-processed-market1501-mask-all': 'det-processed-market1501-mask-all.txt',
     }
     GT_TABLE = {
         # =========== Detection Only ===========
         'default': 'gt.txt',
-        'sdp': 'gt-sdp.txt',
-        'dpm': 'gt-dpm.txt',
-        'frcnn': 'gt-frcnn.txt',
-        # =========== ReID with MOT ============
         'default-processed': 'gt.txt',
-        'sdp-processed': 'gt-sdp.txt',
-        'dpm-processed': 'gt-dpm.txt',
-        'frcnn-processed': 'gt-frcnn.txt',
-        # =========== ReID with Market1501 =====
-        'default-processed-market1501': 'gt.txt',
-        'sdp-processed-market1501': 'gt-sdp.txt',
-        'dpm-processed-market1501': 'gt-dpm.txt',
-        'frcnn-processed-market1501': 'gt-frcnn.txt',
-        # =========== ReID with Mask =====
         'default-processed-mask': 'gt.txt',
+        'default-processed-mask-all': 'gt.txt',
+        'default-processed-market1501': 'gt.txt',
         'default-processed-market1501-mask': 'gt.txt',
+        'default-processed-market1501-mask-all': 'gt.txt',
     }
     def __init__(
             self,
@@ -79,23 +59,13 @@ class MOTSequence:
         # Sanity Check
         assert (mode == 'train' or mode =='test')
         assert (
-            detector == 'default'                   # MOT16
-            or detector == 'sdp'                    # MOT17-SDP
-            or detector == 'dpm'                    # MOT17-DPM
-            or detector == 'frcnn'                  # MOT17-FRCNN
-            # ===================================================
-            or detector == 'default-processed'      # MOT16
-            or detector == 'sdp-processed'          # MOT17-SDP (ReID)
-            or detector == 'dpm-processed'          # MOT17-DPM (ReID)
-            or detector == 'frcnn-processed'        # MOT17-FRCNN (ReID)
-            # =================================================================
-            or detector == 'default-processed-market1501'   # MOT16
-            or detector == 'sdp-processed-market1501'       # MOT17-SDP (ReID)
-            or detector == 'dpm-processed-market1501'       # MOT17-DPM (ReID)
-            or detector == 'frcnn-processed-market1501'     # MOT17-FRCNN (ReID)
-            # =================================================================
+            detector == 'default'
+            or detector == 'default-processed'
             or detector == 'default-processed-mask'
+            or detector == 'default-processed-mask-all'
+            or detector == 'default-processed-market1501'
             or detector == 'default-processed-market1501-mask'
+            or detector == 'default-processed-market1501-mask-all'
             )
 
         # Read seqinfo.ini

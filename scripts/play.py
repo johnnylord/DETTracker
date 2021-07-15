@@ -69,14 +69,22 @@ def main(args):
                 draw_text(gt_img, text, tlbr[:2], bgcolor=color)
 
         # Draw bounding box and mask on image
-        for box, mask in zip(bboxes, masks):
-            tid = int(box[0])
-            color = get_color(tid)
-            color_mask = get_color_mask(mask)
-            tlwh = box[1:1+4]
-            tlbr = [ tlwh[0], tlwh[1], tlwh[0]+tlwh[2], tlwh[1]+tlwh[3] ]
-            draw_box(det_img, tlbr, color=color)
-            draw_mask(det_img, tlbr, color_mask)
+        if 'mask' in args['detector']:
+            for box, mask in zip(bboxes, masks):
+                tid = int(box[0])
+                color = get_color(tid)
+                color_mask = get_color_mask(mask)
+                tlwh = box[1:1+4]
+                tlbr = [ tlwh[0], tlwh[1], tlwh[0]+tlwh[2], tlwh[1]+tlwh[3] ]
+                draw_box(det_img, tlbr, color=color)
+                draw_mask(det_img, tlbr, color_mask)
+        else:
+            for box in bboxes:
+                tid = int(box[0])
+                color = get_color(tid)
+                tlwh = box[1:1+4]
+                tlbr = [ tlwh[0], tlwh[1], tlwh[0]+tlwh[2], tlwh[1]+tlwh[3] ]
+                draw_box(det_img, tlbr, color=color)
 
         if not args['silent']:
             cv2.imshow('GT', gt_img)
@@ -104,8 +112,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sequence", required=True, help="sequence directory")
     parser.add_argument("--detector",
-            default='default-processed-mask',
-            choices=['default-processed-mask', 'default-processed-market1501-mask'],
+            default='default-processed-market1501-mask-all',
+            choices=[
+                'default',
+                'default-processed-mask',
+                'default-processed-market1501-mask',
+                'default-processed-mask-all',
+                'default-processed-market1501-mask-all',
+                ],
             help="default detector")
     parser.add_argument("--silent", action='store_true')
     parser.add_argument("--export", action='store_true')
