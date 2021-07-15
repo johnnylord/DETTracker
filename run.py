@@ -37,8 +37,14 @@ def main(args):
                                 (sequence.imgWidth, sequence.imgHeight))
 
     # Load Trackor
-    # tracker = DeepSORT(
-    tracker = DeepSORTPlus(
+    if args['tracker'] == 'DeepSORT':
+        tracker_cls = DeepSORT
+    elif args['tracker'] == 'DeepSORTPlus':
+        tracker_cls = DeepSORTPlus
+    else:
+        raise ValueError("Unknown tracker")
+
+    tracker = tracker_cls(
                 n_init=args['n_init'],
                 n_lost=args['n_lost'],
                 n_dead=args['n_dead'],
@@ -90,6 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_obj_conf", default=0.4, type=float, help="detected object confidence threshold")
     # Tracker setting
     # =========================================================================
+    parser.add_argument("--tracker", default="DeepSORT", type=str, help="tracker to use")
     # Track Management
     parser.add_argument("--n_init", default=3, type=int, help="track activate threshold")
     parser.add_argument("--n_lost", default=3, type=int, help="track lost threshold")

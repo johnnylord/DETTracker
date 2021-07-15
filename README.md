@@ -13,7 +13,21 @@ $ python3 main.py --config config/motreid.yml
 $ python3 main.py --config config/market1501.yml
 ```
 
-## Run Tracker
+## Run Tracker on MOT Dataset
+```bash
+$ python3 runall.py \
+    --mot_dir [MOT Dataset Directory] \
+    --detector [detector to use] \
+    --tracker [tracker to use] \
+    # tracker options can used (See run.py)
+```
+
+## Evaluate Result on MOT Dataset
+```bash
+$ python3 scripts/evaluation/moteval.py \
+    --mot_gt [MOT Dataset Directory] \
+    --mot_pd [MOT Prediction directory]
+```
 
 ## Visualize Video Result with MPV (2x2 Layout)
 1. Play sequence data and export it as videos

@@ -12,6 +12,7 @@ def main(args):
             sys.executable, "run.py",
             "--sequence", sequence_dir,
             "--detector", args['detector'],
+            "--tracker", args['tracker'],
             ])
         proc = subprocess.Popen(cmdline, shell=True)
         proc.wait()
@@ -21,5 +22,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mot_dir", required=True, help="MOT Sequence directory")
     parser.add_argument("--detector", default='default', type=str, help="which detector to use")
+    parser.add_argument("--tracker", default='DeepSORT', type=str, help="which trackerto use")
     args = vars(parser.parse_args())
     main(args)
