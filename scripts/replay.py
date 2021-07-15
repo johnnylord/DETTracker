@@ -1,6 +1,7 @@
 import os
 import os.path as osp
 import argparse
+import pickle
 
 import cv2
 import numpy as np
@@ -18,7 +19,10 @@ def main(args):
 
     sequence = MOTDSequence(root=args['sequence'],
                             detector=args['detector'],
-                            mode=args['mode'])
+                            mode='test')
+
+    with open(args['result'], 'rb') as f:
+        results = pickle.load(f)
 
     if not args['silent']:
         cv2.namedWindow('GT', cv2.WINDOW_GUI_EXPANDED)
@@ -58,15 +62,15 @@ def main(args):
         depthmap = cv2.cvtColor(depthmap, cv2.COLOR_RGB2BGR)
 
         # Draw track on image
-        if sequence.mode == 'train':
-            for box in tboxes:
-                tid = int(box[0])
-                text = f"ID:{tid}"
-                color = get_color(tid)
-                tlwh = box[1:1+4]
-                tlbr = [ tlwh[0], tlwh[1], tlwh[0]+tlwh[2], tlwh[1]+tlwh[3] ]
-                draw_box(gt_img, tlbr, color=color)
-                draw_text(gt_img, text, tlbr[:2], bgcolor=color)
+        frameId = i + 1
+        tracks = results[frameId]
+        for track in tracks:
+            tid = track['id']
+            text = f"ID:{tid}"
+            color = get_color(tid)
+            box = track['box']
+            draw_box(gt_img, box, color=color)
+            draw_text(gt_img, text, box[:2], bgcolor=color)
 
         # Draw bounding box and mask on image
         if 'mask' in args['detector']:
@@ -111,7 +115,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sequence", required=True, help="sequence directory")
-    parser.add_argument("--mode", default='test', help="sequence mode")
+    parser.add_argument("--result", required=True, help="intermediate result pickle file")
     parser.add_argument("--detector",
             default='default-processed-market1501-mask-all',
             choices=[

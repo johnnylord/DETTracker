@@ -11,7 +11,7 @@ def main(args):
 
     accs = []
     for seq_gt, seq_pd in zip(gts, pds):
-        file_gt = osp.join(seq_gt, 'gt', 'gt.txt')
+        file_gt = osp.join(seq_gt, 'gt', 'gt.txt' if len(args['suffix'] == 0 else f"gt-{args['suffix']}.txt" )
         file_pd = osp.join(seq_pd, f'{osp.basename(seq_pd)}.txt')
 
         df_gt = mm.io.loadtxt(file_gt)
@@ -32,5 +32,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mot_gt", required=True, help="mot2d groundtruth sequence directory")
     parser.add_argument("--mot_pd", required=True, help="mot2d prediction sequence directory")
+    parser.add_argument("--suffix", default="", help="suffix of gt file")
     args = vars(parser.parse_args())
     main(args)

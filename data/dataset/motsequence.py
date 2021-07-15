@@ -37,10 +37,10 @@ class MOTSequence:
         'default': 'gt.txt',
         'default-processed': 'gt.txt',
         'default-processed-mask': 'gt.txt',
-        'default-processed-mask-all': 'gt.txt',
+        'default-processed-mask-all': 'gt-frcnn.txt',
         'default-processed-market1501': 'gt.txt',
         'default-processed-market1501-mask': 'gt.txt',
-        'default-processed-market1501-mask-all': 'gt.txt',
+        'default-processed-market1501-mask-all': 'gt-frcnn.txt',
     }
     def __init__(
             self,
