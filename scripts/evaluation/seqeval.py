@@ -7,6 +7,12 @@ import motmetrics as mm
 
 def main(args):
     df_gt = mm.io.loadtxt(args['gt'])
+    if 'MOT16' in args['gt']:
+        df_gt = df_gt.loc[(
+                        (df_gt['ClassId'] == 1)     # Pedetrain class
+                        | (df_gt['ClassId'] == 2)   # People on vehicles
+                        & (df_gt['Confidence'] == 1)# Considered when evaluation
+                    )]
     df_pred = mm.io.loadtxt(args['pred'])
     acc = mm.utils.compare_to_groundtruth(df_gt, df_pred, 'iou', distth=0.5)
     mh = mm.metrics.create()
