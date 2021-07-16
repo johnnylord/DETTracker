@@ -62,7 +62,7 @@ class MOTSequence:
         assert (mode == 'train' or mode =='test')
         assert (
             detector == 'default'
-            or detector == 'frcnn',
+            or detector == 'frcnn'
             or detector == 'default-processed'
             or detector == 'default-processed-mask'
             or detector == 'default-processed-mask-all'
