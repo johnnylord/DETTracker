@@ -68,6 +68,7 @@ def postprocessing(pred, old_resolution, new_resolution):
 
     output_masks = []
     output_bboxes = []
+    output_scores = []
 
     for bbox, score, cls, mask in zip(bboxes, scores, classes, masks):
         if cls != 'person':
@@ -85,8 +86,9 @@ def postprocessing(pred, old_resolution, new_resolution):
 
         output_masks.append(crop_mask)
         output_bboxes.append([ bbox[0], bbox[1], width, height ])
+        output_scores.append(score)
 
-    return output_bboxes, output_masks
+    return output_bboxes, output_scores, output_masks
 
 def tlwh_to_tlbr(tlwh):
     # Type checking
@@ -199,7 +201,7 @@ def main(args):
 
         x = mask_transform(inverse(img)).to(device)
         pred = model([x])[0]
-        mboxes, masks = postprocessing(pred,
+        mboxes, mscores, masks = postprocessing(pred,
                             old_resolution=(512, 512),
                             new_resolution=(sequence.imgHeight, sequence.imgWidth))
 
@@ -214,9 +216,10 @@ def main(args):
         # Compute reid with masked objects
         eboxes = []
         emasks = []
+        escores = []
         embeds1 = []
         embeds2 = []
-        for mbox, mask in zip(mboxes, masks):
+        for mbox, mscore, mask in zip(mboxes, mscores, masks):
         # for pair in pairs:
             # bbox = bboxes[pair[0]]
             # mbox = mboxes[pair[1]]
@@ -243,6 +246,7 @@ def main(args):
             embeds2.append(embed2)
             eboxes.append(mbox)
             emasks.append(mask)
+            escores.append(mscore)
 
         # Save data in result
         frameId = idx+1
@@ -250,15 +254,15 @@ def main(args):
             result1[frameId] = []
         if frameId not in result2:
             result2[frameId] = []
-        for box, mask, embed1, embed2 in zip(eboxes, emasks, embeds1, embeds2):
+        for box, score, mask, embed1, embed2 in zip(eboxes, escores, emasks, embeds1, embeds2):
             mask_name = osp.join(mask_dir, f"mask{mask_count}.png")
             visMask = (mask * 255).astype("uint8")
             cv2.imwrite(mask_name, visMask)
             mask_count += 1
 
             relative_name = osp.join(osp.basename(mask_dir), osp.basename(mask_name))
-            record1 = [ frameId ] + [-1] + box + [1, -1, -1, -1] + embed1 + [ relative_name ]
-            record2 = [ frameId ] + [-1] + box + [1, -1, -1, -1] + embed2 + [ relative_name ]
+            record1 = [ frameId ] + [-1] + box + [score, -1, -1, -1] + embed1 + [ relative_name ]
+            record2 = [ frameId ] + [-1] + box + [score, -1, -1, -1] + embed2 + [ relative_name ]
 
             result1[frameId].append(record1)
             result2[frameId].append(record2)

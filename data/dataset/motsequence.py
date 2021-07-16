@@ -25,6 +25,7 @@ class MOTSequence:
     DETECTOR_TABLE = {
         # =========== Detection Only ===========
         'default': 'det.txt',
+        'frcnn': 'det-frcnn.txt',
         'default-processed': 'det-processed.txt',
         'default-processed-mask': 'det-processed-mask.txt',
         'default-processed-mask-all': 'det-processed-mask-all.txt',
@@ -35,12 +36,13 @@ class MOTSequence:
     GT_TABLE = {
         # =========== Detection Only ===========
         'default': 'gt.txt',
+        'frcnn': 'gt-frcnn.txt',
         'default-processed': 'gt.txt',
         'default-processed-mask': 'gt.txt',
-        'default-processed-mask-all': 'gt-frcnn.txt',
+        'default-processed-mask-all': 'gt.txt',
         'default-processed-market1501': 'gt.txt',
         'default-processed-market1501-mask': 'gt.txt',
-        'default-processed-market1501-mask-all': 'gt-frcnn.txt',
+        'default-processed-market1501-mask-all': 'gt.txt',
     }
     def __init__(
             self,
@@ -60,6 +62,7 @@ class MOTSequence:
         assert (mode == 'train' or mode =='test')
         assert (
             detector == 'default'
+            or detector == 'frcnn',
             or detector == 'default-processed'
             or detector == 'default-processed-mask'
             or detector == 'default-processed-mask-all'
@@ -237,14 +240,6 @@ class MOTDSequence(MOTSequence):
 
 
 if __name__ == "__main__":
-    # print("Normal Sequence")
-    # sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
-    # img, tboxes, bboxes = sequence[3]
-    # print(img.shape)
-    # print(tboxes)
-    # print(bboxes)
-    # print("="*30)
-
     print("Depth Sequence")
     sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn-processed', mode='train')
     img, depthmap, flowmap, tboxes, bboxes, masks = sequence[3]
@@ -252,14 +247,3 @@ if __name__ == "__main__":
     print(depthmap.shape, depthmap.min(), depthmap.max())
     print(flowmap.shape, flowmap.min(), flowmap.max())
     print(bboxes[0])
-
-    # print(tboxes)
-    # print(bboxes)
-    # print("="*30)
-
-    # import time
-    # start_time = time.time()
-    # for i in range(len(sequence)):
-        # print(f"Read:{i}", end='\r\b')
-        # sample = sequence[i]
-    # print("Elapsed:", time.time()-start_time)
