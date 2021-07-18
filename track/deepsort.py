@@ -102,8 +102,9 @@ class DeepTrack(BaseTrack):
         feature_pool = np.array(self.feature_pool)
         cosines = np.dot(feature_pool, features.T)
         return (1 - cosines).min(axis=0)
+        # return (1 - cosines).mean(axis=0)
 
-    def square_maha_dist(self, bboxes):
+    def square_maha_dist(self, bboxes, n_degrees=4):
         """Return squared mahalanobis distance between track and bboxes
 
         Args:
@@ -117,6 +118,10 @@ class DeepTrack(BaseTrack):
         """
         xyahs = np.array([ tlbr_to_xyah(bbox) for bbox in bboxes ])
         mean, covar = self.kf.project(self.mean, self.covar)
+
+        # Align number of dimensions
+        mean, covar = mean[:n_degrees], covar[:n_degrees, :n_degrees]
+        xyahs = xyahs[:, :n_degrees]
 
         # Apply mahalonobis distance formula
         cholesky_factor = np.linalg.cholesky(covar)

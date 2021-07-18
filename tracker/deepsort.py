@@ -13,6 +13,7 @@ class DeepSORT:
                 n_init=3,
                 n_lost=3,
                 n_dead=30,
+                n_degree=4,
                 pool_size=100,
                 iou_dist_threshold=0.3,
                 cos_dist_threshold=0.3,
@@ -22,6 +23,7 @@ class DeepSORT:
         self.n_lost = n_lost
         self.n_dead = n_dead
         # Tracker settings
+        self.n_degree = n_degree
         self.iou_dist_threshold = iou_dist_threshold
         self.cos_dist_threshold = cos_dist_threshold
         self.pool_size = pool_size
@@ -175,8 +177,8 @@ class DeepSORT:
             cost_mat = np.array([ t.cos_dist(features) for t in tracks ])
         elif mode == 'iou':
             cost_mat = np.array([ t.iou_dist(bboxes) for t in tracks ])
-        gate_mat = np.array([ t.square_maha_dist(bboxes) for t in tracks ])
-        cost_mat[gate_mat > chi2inv95[4]] = 10000
+        gate_mat = np.array([ t.square_maha_dist(bboxes, self.n_degree) for t in tracks ])
+        cost_mat[gate_mat > chi2inv95[self.n_degree]] = 10000
 
         # Perform greedy matching algorithm
         tindices, oindices = linear_sum_assignment(cost_mat)

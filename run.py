@@ -45,14 +45,19 @@ def main(args):
         raise ValueError("Unknown tracker")
 
     tracker = tracker_cls(
+                # Track FSM
                 n_init=args['n_init'],
                 n_lost=args['n_lost'],
                 n_dead=args['n_dead'],
+                # Association
+                n_degree=args['degree'],
+                iou_dist_threshold=args['iou_dist_threshold'],
+                cos_dist_threshold=args['cos_dist_threshold'],
+                # Pseudo depth
                 n_levels=args['n_levels'],
                 max_depth=args['max_depth'],
                 pool_size=args['pool_size'],
-                iou_dist_threshold=args['iou_dist_threshold'],
-                cos_dist_threshold=args['cos_dist_threshold'])
+                )
 
     # Process video frame-by-frame
     results = {}
@@ -103,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_dead", default=30, type=int, help="track dead threshold")
     parser.add_argument("--pool_size", default=100, type=int, help="reid feature pool set")
     # Assoication setting
+    parser.add_argument("--degree", default=4, type=int, help="degree of freedom of kalman state")
     parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="gating threshold for iou distance")
     parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="gating threshold for cos distance")
     # Pseudo depth space setting
