@@ -125,6 +125,7 @@ if __name__ == "__main__":
                 'default-processed-mask',
                 'frcnn-processed-mask',
                 'poi-processed-mask',
+                'mrcnn-processed-mask',
                 ],
             help="default detector")
     parser.add_argument("--silent", action='store_true')
