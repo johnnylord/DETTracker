@@ -5,6 +5,7 @@ from track.base import TrackState
 from track.motion.kalman2d import chi2inv95
 from track.deepsort import DeepTrack
 from track.utils.convert import tlwh_to_tlbr
+from utils.preprocess import non_max_suppression
 
 
 class DeepSORT:
@@ -17,6 +18,7 @@ class DeepSORT:
                 pool_size=100,
                 iou_dist_threshold=0.3,
                 cos_dist_threshold=0.3,
+                nms_iou_threshold=0.5,
                 **kwargs):
         # Track Management
         self.n_init = n_init
@@ -27,6 +29,8 @@ class DeepSORT:
         self.iou_dist_threshold = iou_dist_threshold
         self.cos_dist_threshold = cos_dist_threshold
         self.pool_size = pool_size
+        # Detection filtering
+        self.nms_iou_threshold = nms_iou_threshold
         # Tracker state
         self.tracks = []
 
@@ -65,8 +69,16 @@ class DeepSORT:
 
         # Extract detected objects
         boxes = np.array([ tlwh_to_tlbr(box[1:1+4]) for box in bboxes ])# (N, 4)
+        scores = np.array([ box[5] for box in bboxes ])                 # (N, 1)
         features = np.array([ box[-128:] for box in bboxes ])           # (N, 128)
+
+        # Perform non-maximum suppression on detections
+        picks = non_max_suppression(boxes, scores=scores, max_bbox_overlap=self.nms_iou_threshold)
+        boxes = boxes[picks]
+        features = features[picks]
+
         if len(boxes) > 0 and len(features) > 0:
+            assert boxes.shape[-1] == 4 and features.shape[-1] == 128
             observations = np.concatenate([ boxes, features ], axis=1)  # (N, 132)
         else:
             observations = np.array([])

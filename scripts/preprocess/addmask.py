@@ -18,9 +18,10 @@ from model.resnet import resnet50_reid
 
 LOOKUP = {
     # Reid with MOT
-    'default-processed': 'det-processed-mask.txt',
-    'frcnn-processed': 'det-frcnn-processed-mask.txt',
-    'poi-processed': 'det-poi-processed-mask.txt',
+    # 'default-processed': 'det-processed-mask.txt',
+    # 'frcnn-processed': 'det-frcnn-processed-mask.txt',
+    # 'poi-processed': 'det-poi-processed-mask.txt',
+    'mrcnn-processed-mask': 'det-mrcnn-processed-mask.txt',
 }
 
 COCO_INSTANCE_CATEGORY_NAMES = [
@@ -171,11 +172,12 @@ def main(args):
     # Process each detector
     for detector, detfile in LOOKUP.items():
         detfile = osp.join(args['sequence'], 'det', detfile)
-        mask_dir = osp.join(args['sequence'], 'det', detfile.split('.')[0])
+        mask_dir = osp.join(args['sequence'], 'det', osp.basename(detfile).split('.')[0])
         if not osp.exists(mask_dir):
             os.makedirs(mask_dir)
 
-        sequence = MOTSequence(root=args['sequence'], mode='test', detector=detector)
+        # sequence = MOTSequence(root=args['sequence'], mode='test', detector=detector)
+        sequence = MOTSequence(root=args['sequence'], mode='test', detector='default-processed')
         print(sequence)
 
         # Add Mask & ReID
@@ -190,23 +192,23 @@ def main(args):
             mboxes, mscores, masks = postprocessing(pred)
 
             # Perfrom Assignment with IoU matrix
-            # if len(mboxes) == 0:
-                # continue
-            if len(bboxes) == 0 or len(mboxes) == 0:
+            if len(mboxes) == 0:
                 continue
-            bboxes = np.array(bboxes)[:, 1:1+4]
-            pairs = box_matching(bboxes, mboxes, threshold=0.4)
+            # if len(bboxes) == 0 or len(mboxes) == 0:
+                # continue
+            # bboxes = np.array(bboxes)[:, 1:1+4]
+            # pairs = box_matching(bboxes, mboxes, threshold=0.4)
 
             # Compute reid with masked objects
             eboxes = []
             emasks = []
             embeds = []
             escores = []
-            # for mbox, mscore, mask in zip(mboxes, mscores, masks):
-            for pair in pairs:
-                mbox = mboxes[pair[1]]
-                mask = masks[pair[1]]
-                mscore = mscores[pair[1]]
+            for mbox, mscore, mask in zip(mboxes, mscores, masks):
+            # for pair in pairs:
+                # mbox = mboxes[pair[1]]
+                # mask = masks[pair[1]]
+                # mscore = mscores[pair[1]]
 
                 # Compute reid
                 xmin = int(mbox[0])

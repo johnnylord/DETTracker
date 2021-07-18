@@ -57,6 +57,8 @@ def main(args):
                 n_levels=args['n_levels'],
                 max_depth=args['max_depth'],
                 pool_size=args['pool_size'],
+                # Detection
+                nms_iou_threshold=args['nms_iou_threshold'],
                 )
 
     # Process video frame-by-frame
@@ -98,10 +100,11 @@ if __name__ == "__main__":
     # =========================================================================
     parser.add_argument("--sequence", required=True, help="mot sequence trackor will run on")
     parser.add_argument("--detector", default='default', type=str, help="which detector to use")
-    parser.add_argument("--min_obj_conf", default=0.6, type=float, help="detected object confidence threshold")
+    parser.add_argument("--min_obj_conf", default=0.4, type=float, help="detected object confidence threshold")
     # Tracker setting
     # =========================================================================
     parser.add_argument("--tracker", default="DeepSORT", type=str, help="tracker to use")
+    parser.add_argument("--nms_iou_threshold", default=0.5, type=float, help="maximum bbox overlapping")
     # Track Management
     parser.add_argument("--n_init", default=3, type=int, help="track activate threshold")
     parser.add_argument("--n_lost", default=3, type=int, help="track lost threshold")

@@ -21,7 +21,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mot_dir", required=True, help="MOT Sequence directory")
-    parser.add_argument("--detector", default='default', type=str, help="which detector to use")
     parser.add_argument("--tracker", default='DeepSORT', type=str, help="which tracker to use")
+    parser.add_argument("--detector", default='mrcnn-processed-mask', type=str, help="which detector to use")
     args = vars(parser.parse_args())
     main(args)

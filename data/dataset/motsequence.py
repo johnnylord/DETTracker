@@ -30,6 +30,8 @@ class MOTSequence:
         'default-processed-mask': 'det-processed-mask.txt',
         'frcnn-processed-mask': 'det-frcnn-processed-mask.txt',
         'poi-processed-mask': 'det-poi-processed-mask.txt',
+        # =========== Detection & ReID & Mask ============= (Private detection)
+        'mrcnn-processed-mask': 'det-mrcnn-processed-mask.txt',
     }
     GT_TABLE = {
         # =========== Detection & ReID ============== (DeepSORT)
@@ -40,6 +42,8 @@ class MOTSequence:
         'default-processed-mask': 'gt.txt',
         'frcnn-processed-mask': 'gt.txt',
         'poi-processed-mask': 'gt.txt',
+        # =========== Detection & ReID & Mask ============= (Private Detection)
+        'mrcnn-processed-mask': 'gt.txt',
     }
     def __init__(
             self,
@@ -62,10 +66,12 @@ class MOTSequence:
             detector == 'default-processed'
             or detector == 'frcnn-processed'
             or detector == 'poi-processed'
-            # ===================================================
+            # =================== DeepSORTPlus ==================
             or detector == 'default-processed-mask'
             or detector == 'frcnn-processed-mask'
             or detector == 'poi-processed-mask'
+            # ================== MaskRCNN =======================
+            or detector == 'mrcnn-processed-mask'
             )
 
         # Read seqinfo.ini
