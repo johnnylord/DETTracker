@@ -251,10 +251,5 @@ class MOTreIDWrapper:
 
 
 if __name__ == "__main__":
-    # dataset = MOTreID(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn', mode='train')
-    # for i in range(len(dataset)):
-        # imgs, labels = dataset[i]
-        # print(imgs.shape, labels.shape)
-
-    dataset = MOTreIDWrapper(root="/home/johnnylord/dataset/MOT16/train/", detector='frcnn', num_workers=2, no_cache=True)
+    dataset = MOTreIDWrapper(root="/home/johnnylord/dataset/MOT16/train/", detector='poi-processed', num_workers=2, no_cache=True)
     print(len(dataset))

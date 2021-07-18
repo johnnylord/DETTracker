@@ -20,29 +20,26 @@ class MOTSequence:
     """
     GT_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Ignore", "Type", "Visibility" ]
     MOT16DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf", "X", "Y", "Z" ]
-    MOT17DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf" ]
 
     DETECTOR_TABLE = {
-        # =========== Detection Only ===========
-        'default': 'det.txt',
-        'frcnn': 'det-frcnn.txt',
+        # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'det-processed.txt',
+        'frcnn-processed': 'det-frcnn-processed.txt',
+        'poi-processed': 'det-poi-processed.txt',
+        # =========== Detection & ReID & Mask ============= (DeepSORTPlus)
         'default-processed-mask': 'det-processed-mask.txt',
-        'default-processed-mask-all': 'det-processed-mask-all.txt',
-        'default-processed-market1501': 'det-processed-market1501.txt',
-        'default-processed-market1501-mask': 'det-processed-market1501-mask.txt',
-        'default-processed-market1501-mask-all': 'det-processed-market1501-mask-all.txt',
+        'frcnn-processed-mask': 'det-frcnn-processed-mask.txt',
+        'poi-processed-mask': 'det-poi-processed-mask.txt',
     }
     GT_TABLE = {
-        # =========== Detection Only ===========
-        'default': 'gt.txt',
-        'frcnn': 'gt-frcnn.txt',
+        # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'gt.txt',
+        'frcnn-processed': 'gt.txt',
+        'poi-processed': 'gt.txt',
+        # =========== Detection & ReID & Mask ============= (DeepSORTPlus)
         'default-processed-mask': 'gt.txt',
-        'default-processed-mask-all': 'gt.txt',
-        'default-processed-market1501': 'gt.txt',
-        'default-processed-market1501-mask': 'gt.txt',
-        'default-processed-market1501-mask-all': 'gt.txt',
+        'frcnn-processed-mask': 'gt.txt',
+        'poi-processed-mask': 'gt.txt',
     }
     def __init__(
             self,
@@ -61,14 +58,14 @@ class MOTSequence:
         # Sanity Check
         assert (mode == 'train' or mode =='test')
         assert (
-            detector == 'default'
-            or detector == 'frcnn'
-            or detector == 'default-processed'
+            # =================== DeepSORT ======================
+            detector == 'default-processed'
+            or detector == 'frcnn-processed'
+            or detector == 'poi-processed'
+            # ===================================================
             or detector == 'default-processed-mask'
-            or detector == 'default-processed-mask-all'
-            or detector == 'default-processed-market1501'
-            or detector == 'default-processed-market1501-mask'
-            or detector == 'default-processed-market1501-mask-all'
+            or detector == 'frcnn-processed-mask'
+            or detector == 'poi-processed-mask'
             )
 
         # Read seqinfo.ini
@@ -112,18 +109,9 @@ class MOTSequence:
         # Read detection
         detfile = osp.join(root, 'det', MOTSequence.DETECTOR_TABLE[detector])
         df = pd.read_csv(detfile, header=None)
-        if (
-            detector == 'sdp'
-            or detector == 'dpm'
-            or detector == 'frcnn'
-        ):
-            columns = MOTSequence.MOT17DET_COLUMNS + list(df.columns[len(MOTSequence.MOT17DET_COLUMNS):])
-            df.columns = columns
-            extra_cols = columns[len(MOTSequence.MOT17DET_COLUMNS):]
-        else:
-            columns = MOTSequence.MOT16DET_COLUMNS + list(df.columns[len(MOTSequence.MOT16DET_COLUMNS):])
-            df.columns = columns
-            extra_cols = columns[len(MOTSequence.MOT16DET_COLUMNS):]
+        columns = MOTSequence.MOT16DET_COLUMNS + list(df.columns[len(MOTSequence.MOT16DET_COLUMNS):])
+        df.columns = columns
+        extra_cols = columns[len(MOTSequence.MOT16DET_COLUMNS):]
 
         # Process Detection
         self.all_masks = {}
@@ -140,15 +128,7 @@ class MOTSequence:
             else:
                 names += extra_cols[:-1]
             bboxes = dets[names].to_numpy()
-            if (
-                len(bboxes) > 0
-                and (
-                    detector == 'default'
-                    or detector == 'sdp'
-                    or detector == 'dpm'
-                    or detector == 'frcnn'
-                )
-            ):
+            if len(bboxes) > 0:
                 bboxes[:, 1] -= 1
                 bboxes[:, 2] -= 1
             bboxes = bboxes.tolist()
@@ -240,10 +220,18 @@ class MOTDSequence(MOTSequence):
 
 
 if __name__ == "__main__":
+    print("Normal Sequence")
+    sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='poi-processed', mode='train')
+    img, tboxes, bboxes, masks = sequence[100]
+    print(img.shape)
+    print(len(tboxes))
+    print(len(bboxes))
+    print(len(masks))
+
     print("Depth Sequence")
-    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='frcnn-processed', mode='train')
-    img, depthmap, flowmap, tboxes, bboxes, masks = sequence[3]
-    print(img.shape, img.min(), img.max())
-    print(depthmap.shape, depthmap.min(), depthmap.max())
-    print(flowmap.shape, flowmap.min(), flowmap.max())
-    print(bboxes[0])
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='poi-processed', mode='train')
+    img, depthmap, flowmap, tboxes, bboxes, masks = sequence[100]
+    print(img.shape, depthmap.shape, flowmap.shape)
+    print(len(tboxes))
+    print(len(bboxes))
+    print(len(masks))
