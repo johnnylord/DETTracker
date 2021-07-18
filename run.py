@@ -51,8 +51,8 @@ def main(args):
                 n_levels=args['n_levels'],
                 max_depth=args['max_depth'],
                 pool_size=args['pool_size'],
-                iou_dist_threhsold=args['iou_dist_threhsold'],
-                cos_dist_threhsold=args['cos_dist_threhsold'])
+                iou_dist_threshold=args['iou_dist_threshold'],
+                cos_dist_threshold=args['cos_dist_threshold'])
 
     # Process video frame-by-frame
     results = {}
@@ -93,18 +93,18 @@ if __name__ == "__main__":
     # =========================================================================
     parser.add_argument("--sequence", required=True, help="mot sequence trackor will run on")
     parser.add_argument("--detector", default='default', type=str, help="which detector to use")
-    parser.add_argument("--min_obj_conf", default=0.4, type=float, help="detected object confidence threshold")
+    parser.add_argument("--min_obj_conf", default=0.6, type=float, help="detected object confidence threshold")
     # Tracker setting
     # =========================================================================
     parser.add_argument("--tracker", default="DeepSORT", type=str, help="tracker to use")
     # Track Management
     parser.add_argument("--n_init", default=3, type=int, help="track activate threshold")
     parser.add_argument("--n_lost", default=3, type=int, help="track lost threshold")
-    parser.add_argument("--n_dead", default=30, type=int, help="track dead threhsold")
+    parser.add_argument("--n_dead", default=30, type=int, help="track dead threshold")
     parser.add_argument("--pool_size", default=100, type=int, help="reid feature pool set")
     # Assoication setting
-    parser.add_argument("--iou_dist_threhsold", default=0.3, type=float, help="gating threshold for iou distance")
-    parser.add_argument("--cos_dist_threhsold", default=0.3, type=float, help="gating threshold for cos distance")
+    parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="gating threshold for iou distance")
+    parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="gating threshold for cos distance")
     # Pseudo depth space setting
     parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
     parser.add_argument("--n_levels", default=30, type=float, help="number of intervals between depth range")
