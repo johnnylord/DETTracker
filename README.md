@@ -46,22 +46,18 @@ $ mpv gt.mp4 \
     --lavfi-complex="[vid1][vid2]hstack=inputs=2[top];[vid3][vid4]hstack=inputs=2[bottom];[top][bottom]vstack=inputs=2[vo]"
 ```
 
-## Experiment Result on NTU-MOTD
-
-### Different ReID Model (ReID=[market1501|motreid])
+## MOT16 with DeepSORT and different detectors
 ```
-                     IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML  FP   FN IDs   FM  MOTA  MOTP IDt IDa IDm
-DeepSORT(Mar+Res50) 74.5% 75.4% 73.4% 94.9% 97.7% 64 64  0  0 655 1503  94  598 92.4% 0.101  49  33   0
-DeepSORT(MOT+Res50) 75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0 728 1461  80  594 92.3% 0.101  40  34   2
+          IDF1   IDP   IDR  Rcll  Prcn  GT MT   PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
+DPM      32.3% 84.1% 20.0% 23.4% 98.5% 517 16  125 376   397 84573 116  736 22.9% 0.209  45  87  18
+FRCNN    49.7% 81.6% 35.7% 41.0% 93.8% 517 45  229 243  3012 65130 130  956 38.2% 0.112  49 117  37
+POI      49.9% 75.6% 37.2% 43.9% 89.2% 517 60  219 238  5845 61972 171 1124 38.4% 0.168 113 114  62
+MRCNN    52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
 ```
 
-### Different Tracker (Tracker=[deepsort|deepsortplus])
-TODO
-
-## Experiment Result on MOT16
-
-### Different ReID Model (ReID=[market1501|motreid])
-TODO
-
-### Different Tracker (Tracker=[deepsort|deepsortplus])
-TODO
+## NTU-MOTD with DeepSORT and different detectors
+```
+          IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP   FN IDs   FM  MOTA  MOTP IDt IDa IDm
+YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.101  40  34   2
+MRCNN    74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318  735  94  432 89.3% 0.135  30  45   0
+```
