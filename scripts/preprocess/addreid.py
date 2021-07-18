@@ -11,10 +11,10 @@ from data.dataset.motsequence import MOTSequence
 from model.resnet import resnet50_reid
 
 LOOKUP = {
-    'default': 'det-processed.txt',
-    'sdp': 'det-sdp-processed.txt',
-    'dpm': 'det-dpm-processed.txt',
-    'frcnn': 'det-frcnn-processed.txt',
+    # Default detector with MOTreID feature
+    'default-processed': 'default-processed.txt',
+    'frcnn-processed': 'frcnn-processed.txt',
+    'poi-processed': 'poi-processed.txt',
 }
 def main(args):
     # ReID data preprocessing
@@ -34,7 +34,7 @@ def main(args):
     model.to(device)
     model.eval()
 
-    detectors = [ 'default', 'sdp', 'dpm', 'frcnn' ]
+    detectors = list(LOOKUP.keys())
     for detector in detectors:
         try:
             sequence = MOTSequence(root=args['sequence'], mode='test', detector=detector)

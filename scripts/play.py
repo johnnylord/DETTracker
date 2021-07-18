@@ -16,9 +16,13 @@ def main(args):
     if torch.cuda.is_available():
         torch.rand(1).cuda()
 
+    if 'train' in args['sequence']:
+        mode = 'train'
+    else:
+        mode = 'test'
     sequence = MOTDSequence(root=args['sequence'],
                             detector=args['detector'],
-                            mode=args['mode'])
+                            mode=mode)
 
     if not args['silent']:
         cv2.namedWindow('GT', cv2.WINDOW_GUI_EXPANDED)
@@ -113,13 +117,14 @@ if __name__ == "__main__":
     parser.add_argument("--sequence", required=True, help="sequence directory")
     parser.add_argument("--mode", default='test', help="sequence mode")
     parser.add_argument("--detector",
-            default='default-processed-market1501-mask-all',
+            default='default-processed',
             choices=[
-                'default',
+                'default-processed',
+                'frcnn-processed',
+                'poi-processed',
                 'default-processed-mask',
-                'default-processed-market1501-mask',
-                'default-processed-mask-all',
-                'default-processed-market1501-mask-all',
+                'frcnn-processed-mask',
+                'poi-processed-mask',
                 ],
             help="default detector")
     parser.add_argument("--silent", action='store_true')
