@@ -46,7 +46,11 @@ $ mpv gt.mp4 \
     --lavfi-complex="[vid1][vid2]hstack=inputs=2[top];[vid3][vid4]hstack=inputs=2[bottom];[top][bottom]vstack=inputs=2[vo]"
 ```
 
-## MOT16 with DeepSORT and different detectors
+## Experiements
+
+### Experiments with MOT16
+
+#### MOT16 with DeepSORT and different detectors
 ```
           IDF1   IDP   IDR  Rcll  Prcn  GT MT   PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
 DPM      32.3% 84.1% 20.0% 23.4% 98.5% 517 16  125 376   397 84573 116  736 22.9% 0.209  45  87  18
@@ -55,21 +59,24 @@ POI      49.9% 75.6% 37.2% 43.9% 89.2% 517 60  219 238  5845 61972 171 1124 38.4
 MRCNN    52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
 ```
 
-## NTU-MOTD with DeepSORT and different detectors
+#### MOT16 with different trackers but same detector (MRCNN)
+```
+                         IDF1   IDP   IDR  Rcll  Prcn  GT  MT  PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
+DeepSORT                52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
+DeepSORTPlus(maha2+g3)  51.1% 66.9% 41.3% 50.9% 82.4% 517 104 248 165 12033 54236 394 1224 39.6% 0.207 231 217  85
+```
+> The possible reason why deepsortplus is not superior to deepsort on MOT16 is that depth estimation in outdoor environments is less stable and accurate compared to indoor environments representing in NTU-MOTD.
+
+### Experiments with NTU-MOTD
+
+#### NTU-MOTD with DeepSORT and different detectors
 ```
           IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP   FN IDs   FM  MOTA  MOTP IDt IDa IDm
 MRCNN    74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318  735  94  432 89.3% 0.135  30  45   0
 YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.101  40  34   2
 ```
 
-## MOT16 with different trackers but same detector (MRCNN)
-```
-                 IDF1   IDP   IDR  Rcll  Prcn  GT  MT  PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
-DeepSORT        52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
-DeepSORTPlus    51.2% 67.0% 41.4% 50.9% 82.4% 517 103 248 166 12028 54238 420 1237 39.6% 0.207 250 227  91
-```
-
-## NTU-MOTD with different trackers but same detector (MRCNN)
+#### NTU-MOTD with different trackers but same detector (MRCNN)
 ```
                          IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP  FN IDs   FM  MOTA  MOTP IDt IDa IDm
 DeepSORT(cos+g2)        74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318 735  94  432 89.3% 0.135  30  45   0
