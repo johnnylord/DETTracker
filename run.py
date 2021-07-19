@@ -53,6 +53,8 @@ def main(args):
                 n_degree=args['degree'],
                 iou_dist_threshold=args['iou_dist_threshold'],
                 cos_dist_threshold=args['cos_dist_threshold'],
+                maha_iou_dist_threshold=args['maha_iou_dist_threshold'],
+                maha_cos_dist_threshold=args['maha_cos_dist_threshold'],
                 # Pseudo depth
                 n_levels=args['n_levels'],
                 max_depth=args['max_depth'],
@@ -112,11 +114,13 @@ if __name__ == "__main__":
     parser.add_argument("--pool_size", default=100, type=int, help="reid feature pool set")
     # Assoication setting
     parser.add_argument("--degree", default=4, type=int, help="degree of freedom of kalman state")
-    parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="gating threshold for iou distance")
-    parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="gating threshold for cos distance")
+    parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="threshold for iou distance")
+    parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
+    parser.add_argument("--maha_iou_dist_threshold", default=0.5, type=float, help="threshold for maha iou distance")
+    parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance")
     # Pseudo depth space setting
     parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
-    parser.add_argument("--n_levels", default=30, type=float, help="number of intervals between depth range")
+    parser.add_argument("--n_levels", default=25, type=float, help="number of intervals between depth range")
     # Runtime setting
     # =========================================================================
     parser.add_argument("--verbose", action='store_true', help="show information on terminal")

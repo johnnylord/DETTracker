@@ -25,81 +25,70 @@ class KalmanFilter3D:
     """Kalman filter for modeling spatial state of track in image space
 
     Here are the states kalman filter trying to maintain
-        np.ndarray([
-            x, y, z,            # 3D position
-            vx, vy,             # xy optical flow pixel offset
-            a, h,               # bounding box area
-            vz, ax, ay, va, vh  # velocities
-        ])
+
+        np.ndarray([ x, y, z, a, h, vx, vy, vz, va, vh ])
 
     Target explanation:
         x: bounding box center postion along x axis in image space
         y: bounding box center postion along y axis in image space
         z: bounding box center postion along z axis in pseudo depth space
-        vx: object center pixel offset velocity along x axis in image space
-        vy: object center pixel offset velocity along y axis in image space
         a: aspect ratio of bounding box width over bounding box height
         h: bounding box height
         [va]*: respective velocities of target states
 
     The motion model is a constant velocity model. The bounding box information
-    (x, y, z, vx, vy, a, h) are taken as direct observation.
+    (x, y, z, a, h) are taken as direct observation.
 
     Attributes:
-        _motion_mat (ndarray): a (12, 12) matrix for predicting the next state
-        _project_mat (ndarray): a (7, 12) matrix for projecting state vector from
+        _motion_mat (ndarray): a (10, 10) matrix for predicting the next state
+        _project_mat (ndarray): a (5, 10) matrix for projecting state vector from
             state space to observation space.
         _std_weight_pos (float): uncertainty of the (x, y, a, h)
         _std_weight_vel (float): uncertainty of the (vx, vy, va, vh)
-        _std_weight_acc (float): uncertainty of the (ax, ay)
-        _std_weight_dep (float): uncertainty of the (z, vz)
+        _std_weight_dep (float): uncertainty of the (z)
+        _std_weight_dev (float): uncertainty of the (vz)
     """
-    def __init__(self, max_depth=5, n_levels=30):
+    def __init__(self, max_depth=5, n_levels=20):
         self.max_depth = max_depth
         self.n_levels = n_levels
 
         # Dimension of prediction matrix: (12, 12)
         self._motion_mat = np.array([
-            [ 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 ], # x
-            [ 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 ], # y
-            [ 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0 ], # z
-            [ 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0 ], # vx
-            [ 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0 ], # vy
-            [ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 ], # a
-            [ 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ], # h
-            # ==========================================
-            [ 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 ], # vz
-            [ 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 ], # ax
-            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 ], # ay
-            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 ], # va
-            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 ], # vh
+            [ 1, 0, 0, 0, 0, 1, 0, 0, 0, 0 ], # x
+            [ 0, 1, 0, 0, 0, 0, 1, 0, 0, 0 ], # y
+            [ 0, 0, 1, 0, 0, 0, 0, 1, 0, 0 ], # z
+            [ 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 ], # a
+            [ 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 ], # h
+            [ 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 ], # vx
+            [ 0, 0, 0, 0, 0, 0, 1, 0, 0, 0 ], # vy
+            [ 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 ], # vz
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 ], # va
+            [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 ], # vh
         ])
 
-        # Dimension of projection matrix: (7, 12)
-        self._project_mat = np.eye(7, 12)
+        # Dimension of projection matrix: (5, 10)
+        self._project_mat = np.eye(5, 10)
 
         # Motion and observation uncertainty are chosen relative to the current
         # state estimation. These weights control the amount of uncertainty in
         # the model. This is a bit hacky
         self._std_weight_pos = 1. / 20
         self._std_weight_vel = 1. / 160
-        self._std_weight_acc = 1. / 640
-        self._std_weight_dep = max_depth / n_levels / 100
+        self._std_weight_dep = max_depth / n_levels
+        self._std_weight_dev = max_depth / n_levels / 1000
 
     def initiate(self, observation):
         """Initialize state of kalman filter
 
         Args:
             observation (ndarray):
-                Bounding box information (x, y, z, vx, vy, a, h) with
+                Bounding box information (x, y, z, a, h) with
                 center position (x, y, z),
-                xy optical flow (vx, vy),
-                aspect ratio (a),
-                and height (h).
+                aspect ratio (a), and height (h).
 
         Returns:
-            mean (ndarray): intialized state vector of shape (12,)
-            covariance (ndarray): initialized uncertainty matrix of shape (12x12)
+            mean (ndarray): intialized state vector of shape (10,)
+            covariance (ndarray): initialized uncertainty matrix of shape (10x10)
         """
         # mean vector (state vector)
         mean_state = observation
@@ -108,19 +97,17 @@ class KalmanFilter3D:
 
         # covariance matrix (uncertainty matrix)
         std = [
-            2 * self._std_weight_pos * observation[6],      # x ~= 50 pixel
-            2 * self._std_weight_pos * observation[6],      # y ~= 50 pixel
-            self.max_depth / self.n_levels,                 # z
-            10 * self._std_weight_vel * observation[6],     # vx ~= 15 pixel
-            10 * self._std_weight_vel * observation[6],     # vy ~= 15 pixel
-            1e-2,                                           # a
-            2 * self._std_weight_pos * observation[6],      # h ~= 50 pixel
-            # =========================================================
-            self._std_weight_dep,                           # vz
-            10 * self._std_weight_acc * observation[6],     # ax ~= 2 pixel
-            10 * self._std_weight_acc * observation[6],     # ay ~= 2 pixel
-            1e-5,                                           # va
-            10 * self._std_weight_vel * observation[6],     # vh ~= 15 pixel
+            2 * self._std_weight_pos * observation[4],
+            2 * self._std_weight_pos * observation[4],
+            2 * self._std_weight_dep,
+            1e-2,
+            2 * self._std_weight_pos * observation[4],
+            # =========================================
+            10 * self._std_weight_vel * observation[4],
+            10 * self._std_weight_vel * observation[4],
+            10 * self._std_weight_dev,
+            1e-5,
+            10 * self._std_weight_vel * observation[4],
             ]
         covariance = np.diag(np.square(std))
         return mean, covariance
@@ -129,28 +116,26 @@ class KalmanFilter3D:
         """Predict the next state given the previous state (mean & covariance)
 
         Args:
-            mean (ndarray): previous state vector of shape (12,)
-            covariance (ndarray): previous uncertainty matrix of shape (12, 12)
+            mean (ndarray): previous state vector of shape (10,)
+            covariance (ndarray): previous uncertainty matrix of shape (10, 10)
 
         Returns:
-            mean (ndarray): predicted state vector of shape (12,)
-            covariance (ndarray): predicted uncertainty matrix of shape (12, 12)
+            mean (ndarray): predicted state vector of shape (10,)
+            covariance (ndarray): predicted uncertainty matrix of shape (10, 10)
         """
         # Noise for covariance matrix (noise from the "world", unknown factors)
         std = [
-            self._std_weight_pos * mean[6],     # x ~= 50 pixel
-            self._std_weight_pos * mean[6],     # y ~= 50 pixel
-            self.max_depth / self.n_levels,     # z
-            self._std_weight_vel * mean[6],     # vx ~= 15 pixel
-            self._std_weight_vel * mean[6],     # vy ~= 15 pixel
-            1e-2,                               # a
-            self._std_weight_pos * mean[6],     # h ~= 50 pixel
-            # =========================================================
-            self._std_weight_dep,               # vz
-            self._std_weight_acc * mean[6],     # ax ~= 2 pixel
-            self._std_weight_acc * mean[6],     # ay ~= 2 pixel
-            1e-5,                               # va
-            self._std_weight_vel * mean[6],     # vh ~= 15 pixel
+            self._std_weight_pos * mean[4],
+            self._std_weight_pos * mean[4],
+            self._std_weight_dep,
+            1e-2,
+            self._std_weight_pos * mean[4],
+            # =============================
+            self._std_weight_vel * mean[4],
+            self._std_weight_vel * mean[4],
+            self._std_weight_dev,
+            1e-5,
+            self._std_weight_vel * mean[4],
             ]
         motion_cov = np.diag(np.square(np.array(std)))
 
@@ -165,22 +150,20 @@ class KalmanFilter3D:
         """Project state vector and uncertainty matrix to the observation space
 
         Args:
-            mean (ndarray): predicted state vector of shape (12,)
-            covariance (ndarray): predicted uncertainty matrix of shape (12, 12)
+            mean (ndarray): predicted state vector of shape (10,)
+            covariance (ndarray): predicted uncertainty matrix of shape (10, 10)
 
         Returns:
-            mean (ndarray): projected state vector of shape (7,)
-            covariance (ndarray): projected uncertainty matrix of shape (7, 7)
+            mean (ndarray): projected state vector of shape (5,)
+            covariance (ndarray): projected uncertainty matrix of shape (5, 5)
         """
         # Noise for projected covariance matrix
         std = [
-            self._std_weight_pos * mean[6],     # x ~= 50 pixel
-            self._std_weight_pos * mean[6],     # y ~= 50 pixel
-            self.max_depth / self.n_levels,     # z
-            self._std_weight_vel * mean[6],     # vx ~= 15 pixel
-            self._std_weight_vel * mean[6],     # vy ~= 15 pixel
-            1e-1,                               # a
-            self._std_weight_pos * mean[6],     # h ~= 50 pixel
+            self._std_weight_pos * mean[4],
+            self._std_weight_pos * mean[4],
+            self._std_weight_dep,
+            1e-1,
+            self._std_weight_pos * mean[4],
             ]
         project_cov = np.diag(np.square(std))
 
@@ -195,13 +178,13 @@ class KalmanFilter3D:
         """Refine the predicted state with the observed data
 
         Args:
-            mean (ndarray): predicted state vector of shape (12,)
-            covariacne (ndarray): predicted uncertainty matrix of shape (12, 12)
-            observation (ndarray): observed data of shape (7,)
+            mean (ndarray): predicted state vector of shape (10,)
+            covariacne (ndarray): predicted uncertainty matrix of shape (10, 10)
+            observation (ndarray): observed data of shape (5,)
 
         Returns:
-            mean (ndarray): refined state vector of shape (12,)
-            covariacne (ndarray): refined uncertainty matrix of shape (12, 12)
+            mean (ndarray): refined state vector of shape (10,)
+            covariacne (ndarray): refined uncertainty matrix of shape (10, 10)
         """
         # Project mean & covariance so that they are in the same space as observation
         project_mean, project_covariance = self.project(mean, covariance)

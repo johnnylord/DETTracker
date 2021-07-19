@@ -10,7 +10,7 @@ class ContextTrack(BaseTrack):
     """Track object in DeepSORTPlus
 
     Arguments:
-        box (ndarray): motion information (xmin, ymin, xmax, ymax, z, vx, vy)
+        box (ndarray): motion information (xmin, ymin, xmax, ymax, z)
         feature (ndarray): ReID feature vector of 128 dimension
         pool_size (ndarray): size of feature pool
         max_depth (float): maximum depth of virtual space
@@ -21,11 +21,10 @@ class ContextTrack(BaseTrack):
         self.pool_size = pool_size
         # Motion Filter
         self.kf = KalmanFilter3D(max_depth=max_depth, n_levels=n_levels)
-        # Initialize motion vector
-        x, y, a, h = tlbr_to_xyah(box[:4])
-        z, vx, vy = box[4:].tolist()
-        motion = np.array([ x, y, z, vx, vy, a, h ])
-        self.mean, self.covar = self.kf.initiate(motion)
+        # Initialize kalman state
+        (x, y, a, h), z = tlbr_to_xyah(box[:4]), box[4]
+        state = np.array([ x, y, z, a, h ])
+        self.mean, self.covar = self.kf.initiate(state)
         # initilaize reid feature sets
         self.feature_pool = [ feature ]
         self.occluded = False
@@ -33,7 +32,7 @@ class ContextTrack(BaseTrack):
     @property
     def tlbr(self):
         mean = self.mean
-        tlbr = xyah_to_tlbr([ mean[0], mean[1], mean[5], mean[6] ])
+        tlbr = xyah_to_tlbr([ mean[0], mean[1], mean[3], mean[4] ])
         return tlbr
 
     @property
@@ -52,17 +51,15 @@ class ContextTrack(BaseTrack):
             state = "dead"
         # Content of track
         mean, covar = self.kf.project(self.mean, self.covar)
-        box = xyah_to_tlbr([ mean[0], mean[1], mean[5], mean[6] ])
+        box = xyah_to_tlbr([ mean[0], mean[1], mean[3], mean[4] ])
         xyz = mean[:3]
         var = covar[:3, :3]
-        motion = mean[3:5]
         track = {
             'id': self.id,
             'state': state,
             'box': box,
             'xyz': xyz,
             'var': var,
-            'motion': motion,
             'occluded': self.occluded,
             }
         return track
@@ -72,25 +69,33 @@ class ContextTrack(BaseTrack):
         mean, covar = self.kf.predict(self.mean, self.covar)
         self.mean = mean
         self.covar = covar
+
         return self.mean, self.covar
 
     def update(self, box):
-        """Use observation to calibrate track state at time t timestamp"""
+        """Use observation to calibrate track state at time t timestamp
+
+        Arguments:
+            box (ndarray): motion information (xmin, ymin, xmax, ymax, z)
+        """
         # Convert observation format
-        x, y, a, h = tlbr_to_xyah(box[:4])
-        z, vx, vy = box[4:].tolist()
-        observation = np.array([ x, y, z, vx, vy, a, h ])
+        (x, y, a, h), z = tlbr_to_xyah(box[:4]), box[4]
+        observation = np.array([ x, y, z, a, h ])
         # Update state with observatio
-        self.mean, self.covar = self.kf.update(mean=self.mean,
-                                            covariance=self.covar,
-                                            observation=observation)
+        mean, covar = self.kf.update(mean=self.mean,
+                                    covariance=self.covar,
+                                    observation=observation)
+        self.mean = mean
+        self.covar = covar
+
         return self.mean, self.covar
 
     def update_feature(self, feature):
         """Update ReID feature pool"""
-        self.feature_pool.append(feature)
-        if len(self.feature_pool) >= self.pool_size:
-            self.feature_pool = self.feature_pool[1:]
+        if not self.occluded:
+            self.feature_pool.append(feature)
+            if len(self.feature_pool) >= self.pool_size:
+                self.feature_pool = self.feature_pool[1:]
 
     def iou_dist(self, bboxes):
         """Return iou distance vectors between track and bboxes
@@ -102,9 +107,9 @@ class ContextTrack(BaseTrack):
             A N dimensional iou distance vector
 
         Note:
-            A bbox is (xmin, ymin, xmax, ymax, z, vx, vy)
+            A bbox is (xmin, ymin, xmax, ymax)
         """
-        xyah = [ self.mean[0], self.mean[1], self.mean[5], self.mean[6] ]
+        xyah = [ self.mean[0], self.mean[1], self.mean[3], self.mean[4] ]
         bbox = np.array([xyah_to_tlbr(xyah)])
 
         x11, y11, x12, y12 = np.split(bbox, 4, axis=1)
@@ -138,29 +143,30 @@ class ContextTrack(BaseTrack):
         cosines = np.dot(feature_pool, features.T)
         return (1 - cosines).min(axis=0)
 
-    def square_maha_dist(self, bboxes):
+    def square_maha_dist(self, bboxes, n_degrees=3):
         """Return squared mahalanobis distance between track and bboxes
 
         Args:
-            bboxes (np.ndarray): array of shape (N, 7)
+            bboxes (np.ndarray): array of shape (N, 5)
 
         Return:
             A N dimensional distance vector
 
         Note:
-            A bbox is (xmin, ymin, xmax, ymax, z, vx, vy)
+            A bbox is (xmin, ymin, xmax, ymax, z)
         """
         # Convert bboxes format to state vector
         observations = []
         for bbox in bboxes:
-            x, y, a, h = tlbr_to_xyah(bbox[:4])
-            z, vx, vy = bbox[4:].tolist()
-            motion = np.array([ x, y, z, vx, vy, a, h ])
-            observations.append(motion)
+            (x, y, a, h), z = tlbr_to_xyah(bbox[:4]), bbox[4]
+            observation = np.array([ x, y, z, a, h ])
+            observations.append(observation)
         observations = np.array(observations)
 
         # Align dimension of state vector to observations
         mean, covar = self.kf.project(self.mean, self.covar)
+        mean, covar = mean[:n_degrees], covar[:n_degrees, :n_degrees]
+        observations = observations[:, :n_degrees]
 
         # Apply mahalonobis distance formula
         cholesky_factor = np.linalg.cholesky(covar)

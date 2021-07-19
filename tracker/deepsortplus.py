@@ -1,4 +1,5 @@
 import traceback
+import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from track.base import TrackState
@@ -6,6 +7,7 @@ from track.motion.kalman3d import chi2inv95
 from track.deepsortplus import ContextTrack
 from track.utils.convert import tlwh_to_tlbr
 from utils.sample import sample_mean
+from utils.function import softmax
 
 
 class DeepSORTPlus:
@@ -14,11 +16,14 @@ class DeepSORTPlus:
                 n_init=3,
                 n_lost=3,
                 n_dead=30,
+                n_degree=3,
                 n_levels=20,
                 max_depth=5.,
                 pool_size=100,
                 iou_dist_threshold=0.3,
                 cos_dist_threshold=0.3,
+                maha_iou_dist_threshold=0.5,
+                maha_cos_dist_threshold=0.5,
                 **kwargs):
         # Track Management
         self.n_init = n_init
@@ -27,6 +32,9 @@ class DeepSORTPlus:
         # Tracker settings
         self.iou_dist_threshold = iou_dist_threshold
         self.cos_dist_threshold = cos_dist_threshold
+        self.maha_iou_dist_threshold = maha_iou_dist_threshold
+        self.maha_cos_dist_threshold = maha_cos_dist_threshold
+        self.n_degree = n_degree
         self.n_levels = n_levels
         self.max_depth = max_depth
         self.pool_size = pool_size
@@ -41,7 +49,7 @@ class DeepSORTPlus:
             depthmap (tensor): tensor of shape (3, H, W)
             flowmap (tensor): tensor of shape (H, W, 2)
             bboxes (list): list of bounding boxes
-            masks (list): list of object masks related bboxes (H, W)
+            masks (list): list of object masks related bboxes
 
         Format of depthmap:
             The value range of depth map is between 0 and 1, you can multiply
@@ -64,28 +72,35 @@ class DeepSORTPlus:
                 3. motion vector
                 4. depth
         """
+        # Determine Track Occlusion status
+        self._determine_track_occlusion()
+
         # Carry Track State from previous frame to current frame
         for track in self.tracks:
             track.predict()
 
-        # Determine Occlusion status
-        self._determine_track_occlusion()
-
         # Extract detected objects
-        boxes = np.array([
-                    tlwh_to_tlbr(box[1:1+4])
-                    for box in bboxes
-                    if int(box[3])*int(box[4]) != 0
-                    ])                                                  # (N, 4)
-        boxes = self._add_depth(depthmap, boxes)                        # (N, 5)
-        boxes = self._add_vxvy(flowmap, boxes)                          # (N, 7)
-        features = np.array([
-                    box[-128:]
-                    for box in bboxes
-                    if int(box[3])*int(box[4]) != 0
-                    ])                                                  # (N, 128)
-        if len(boxes) > 0 and len(features) > 0:
-            observations = np.concatenate([ boxes, features ], axis=1)  # (N, 135)
+        oboxes, omasks, ofeatures = [], [], []
+        for box, mask in zip(bboxes, masks):
+            if int(box[3])*int(box[4]) == 0:
+                continue
+            tlbr = tlwh_to_tlbr(box[1:1+4])
+            feature = box[-128:]
+            assert len(tlbr) == 4 and len(feature) == 128
+            oboxes.append(tlbr)
+            omasks.append(mask)
+            ofeatures.append(feature)
+
+        # Convert to numpy foramt
+        oboxes = np.array(oboxes)         # (N, 4)
+        ofeatures = np.array(ofeatures)   # (N, 128)
+
+        # Add depth information to boxes
+        oboxes = self._add_depth(depthmap, oboxes, omasks) # (N, 5)
+
+        # Aggregate observations
+        if len(oboxes) > 0:
+            observations = np.concatenate([ oboxes, ofeatures ], axis=1)  # (N, 133)
         else:
             observations = np.array([])
 
@@ -102,23 +117,33 @@ class DeepSORTPlus:
             return tracked
 
         # Split track set by state
-        conf_tracks = [ t for t in self.tracks if t.state != TrackState.TENTATIVE ]
+        live_tracks = [ t for t in self.tracks if t.state == TrackState.TRACKED ]
+        lost_tracks = [ t for t in self.tracks if t.state == TrackState.LOST ]
         tent_tracks = [ t for t in self.tracks if t.state == TrackState.TENTATIVE ]
 
         # Associate detected objects with tracks
         match_pairs = []
         unmatch_tracks = []
 
-        # Perform matching cascade on confirmed tracks
+        # Perform matching cascade with live tracks
         pairs, tracks, observations = self._matching_cascade(
-                                            conf_tracks,
+                                            live_tracks,
+                                            observations,
+                                            threshold=self.maha_cos_dist_threshold,
+                                            mode='maha_cos')
+        match_pairs.extend(pairs)
+        unmatch_tracks.extend(tracks)
+
+        # Perform matching cascade with lost tracks
+        pairs, tracks, observations = self._matching_cascade(
+                                            lost_tracks,
                                             observations,
                                             threshold=self.cos_dist_threshold,
                                             mode='cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
-        # Perform plain association with tentative tracks
+        # Perform matching cascade with tent tracks
         pairs, tracks, observations = self._associate(
                                             tent_tracks,
                                             observations,
@@ -129,8 +154,10 @@ class DeepSORTPlus:
 
         # Update matched tracks and observations
         for track, observation in match_pairs:
-            box = observation[:7]
-            feature = observation[7:]
+            # Unpack observation
+            box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
+            feature = observation[-128:]
+            assert len(box) == 5 and len(feature) == 128
             track.update(box)
             track.update_feature(feature)
             track.hit()
@@ -141,8 +168,9 @@ class DeepSORTPlus:
 
         # Create new tracks
         for observation in observations:
-            box = observation[:7]
-            feature = observation[7:]
+            # Unpack observation
+            box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
+            feature = observation[-128:]
             track = ContextTrack(box, feature,
                             n_levels=self.n_levels,
                             max_depth=self.max_depth,
@@ -190,16 +218,26 @@ class DeepSORTPlus:
         elif len(tracks) == 0 and len(observations) == 0:
             return [], [], np.array([])
 
-        bboxes = observations[:, :7]
-        features = observations[:, 7:]
+        bboxes = observations[:, :5]        # (xmin, ymin, xmax, ymax, depth)
+        features = observations[:, -128:]    # (features)
+        assert bboxes.shape[1] == 5 and features.shape[1] == 128
 
         # Concstruct cost matrix
         if mode == 'cos':
             cost_mat = np.array([ t.cos_dist(features) for t in tracks ])
         elif mode == 'iou':
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
-        gate_mat = np.array([ t.square_maha_dist(bboxes) for t in tracks ])
-        cost_mat[gate_mat > chi2inv95[7]] = 10000
+        elif mode == 'maha_cos':
+            prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
+            prob_dis = np.array([ softmax(row) for row in prob_dis ])
+            cost_mat = 1 - (prob_cos*prob_dis)
+        else:
+            raise ValueError("Unknown mode '{mode}' for cost matrix")
+
+        # Constrain cost matrix with gated matrix
+        gate_mat = np.array([ t.square_maha_dist(bboxes, self.n_degree) for t in tracks ])
+        cost_mat[gate_mat > chi2inv95[self.n_degree]] = 10000
 
         # Perform greedy matching algorithm
         tindices, oindices = linear_sum_assignment(cost_mat)
@@ -220,12 +258,13 @@ class DeepSORTPlus:
 
         return pairs, unmatch_tracks, np.array(unmatch_observations)
 
-    def _add_depth(self, depthmap, boxes):
+    def _add_depth(self, depthmap, boxes, masks):
         """Append depth (z) dimension to existing boxes
 
         Args:
             depthmap (tensor): tensor of shape (3, H, W)
             boxes (ndarray): bounding boxes of shape (N, 4)
+            masks (list): list of object masks related to boxes
 
         Returns:
             a new set of boxes of shape (N, 5)
@@ -234,67 +273,28 @@ class DeepSORTPlus:
             The box format of input is (xmin, ymin, xmax, ymax)
         """
         new_boxes = []
-        for box in boxes:
-            # Extract depth pixels in a single array
+        for box, mask in zip(boxes, masks):
+            # Unpack bbox
             xmin = int(box[0])
             ymin = int(box[1])
             xmax = int(box[2])
             ymax = int(box[3])
-            depth_dist = depthmap[0, ymin:ymax, int(xmin+xmax)//2].numpy().reshape(-1)
-            # Apply median filter to extract out closer pixel
-            median = np.median(depth_dist)
-            depth = (1-median)*self.max_depth
-            # Add new box
+            # Crop the pixels from depthmap
+            pixels = depthmap[0, int(ymin):int(ymax), int(xmin):int(xmax)].numpy()
+            if tuple(pixels.shape) != tuple(mask.shape):
+                mask = cv2.resize(mask, (pixels.shape[1], pixels.shape[0]))
+            # Align pixels with mask
+            pixels = pixels.reshape(-1)
+            mask = mask.reshape(-1)
+            mask = (mask > 200)
+            # Filter out depth value
+            depth = self.max_depth*(1-np.mean(pixels[mask]))
             new_boxes.append(box.tolist()+[depth])
 
         return np.array(new_boxes)
 
-    def _add_vxvy(self, flowmap, boxes):
-        """Append xy motion vector (vx, vy) to existing boxes
-
-        Args:
-            flowmap (tensor): tensor of shape (H, W, 2)
-            boxes (ndarray): bounding boxes of shape (N, 5)
-
-        Returns:
-            a new set of boxes of shape (N, 7)
-
-        NOTE:
-            The box format of input is (xmin, ymin, xmax, ymax, z)
-        """
-        new_boxes = []
-        for box in boxes:
-            # Extract xy flow in seperated arrays
-            xmin = int(box[0])
-            ymin = int(box[1])
-            xmax = int(box[2])
-            ymax = int(box[3])
-            x_dist = flowmap[ymin:ymax, xmin:xmax, 0].numpy().reshape(-1)
-            y_dist = flowmap[ymin:ymax, xmin:xmax, 1].numpy().reshape(-1)
-            # Filter out possible motion vectors
-            condition = np.where((
-                            (x_dist > 0.05)
-                            |(x_dist < -0.05)
-                            |(y_dist > 0.05)
-                            |(y_dist < -0.05)
-                        ))
-            x_filter_dist = x_dist[condition]
-            y_filter_dist = y_dist[condition]
-            if len(x_filter_dist)/len(x_dist) > 0.4:
-                # Apply sample mean with central limit theroem
-                try:
-                    _, vx = sample_mean(x_filter_dist, rounds=100)
-                    _, vy = sample_mean(y_filter_dist, rounds=100)
-                except Exception as e:
-                    vx, vy = 0., 0.
-            else:
-                vx, vy = 0., 0.
-            # Add new box
-            new_boxes.append(box.tolist()+[vx, vy])
-
-        return np.array(new_boxes)
-
     def _determine_track_occlusion(self):
+        """Update confirmed tracks occlusion status"""
         tracked = [ track for
                     track in self.tracks
                     if track.state == TrackState.TRACKED ]
@@ -302,6 +302,7 @@ class DeepSORTPlus:
                     track in self.tracks
                     if track.state != TrackState.TENTATIVE ]
         for track in confirm:
+            occluded = False
             for target in tracked:
                 if target == track or target.depth >= track.depth:
                     continue
@@ -309,6 +310,8 @@ class DeepSORTPlus:
                 xmin2, _, xmax2, _ = target.tlbr
                 xmin, xmax = max([xmin1, xmin2]), min([xmax1, xmax2])
                 inter = max([xmax-xmin, 0])
-                union = max([xmax1, xmax2]) - min([xmin1, xmin2])
-                if (inter/union) > 0.2:
-                    track.occluded = True
+                union = xmax1-xmin1
+                if (inter/union) > 0.3:
+                    occluded = True
+                    break
+            track.occluded = occluded

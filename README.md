@@ -58,6 +58,18 @@ MRCNN    52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7
 ## NTU-MOTD with DeepSORT and different detectors
 ```
           IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP   FN IDs   FM  MOTA  MOTP IDt IDa IDm
-YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.101  40  34   2
 MRCNN    74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318  735  94  432 89.3% 0.135  30  45   0
+YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.101  40  34   2
+```
+
+## MOT16 with different trackers but same detectors
+```
+
+```
+
+## NTU-MOTD with different trackers but same detector (MRCNN)
+```
+                 IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP  FN IDs   FM  MOTA  MOTP IDt IDa IDm
+DeepSORT        74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318 735  94  432 89.3% 0.135  30  45   0
+DeepSORTPlus    85.9% 84.9% 86.7% 96.9% 95.1% 64 64  0  0 1470 905  64  501 91.7% 0.132  26  27   0
 ```
