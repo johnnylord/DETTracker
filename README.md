@@ -64,6 +64,7 @@ YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.10
 
 ## MOT16 with different trackers but same detector (MRCNN)
 ```
+                 IDF1   IDP   IDR  Rcll  Prcn  GT  MT  PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
 DeepSORT        52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
 DeepSORTPlus    51.2% 67.0% 41.4% 50.9% 82.4% 517 103 248 166 12028 54238 420 1237 39.6% 0.207 250 227  91
 ```
@@ -77,6 +78,6 @@ DeepSORTPlus(cos+g3)    89.1% 88.1% 90.0% 97.0% 95.1% 64 64  0  0 1467 899  69  
 DeepSORTPlus(maha3+g3)  87.3% 86.2% 88.2% 97.0% 95.1% 64 64  0  0 1485 872  57  487 91.8% 0.132  21  22   0
 DeepSORTPlus(maha2+g3)  87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454 857  57  492 92.0% 0.132  23  21   1
 ```
-> cos => cosine similarity to construct cost matrix
-> mahaX => softmax mahalanobis distance with degree of X cosine similarity to construct cost matrix
+> cos => cosine similarity to construct cost matrix  
+> mahaX => softmax mahalanobis distance with degree of X cosine similarity to construct cost matrix  
 > gX => gating matrix (chi-square testing) with X degree of freedom of kalman state
