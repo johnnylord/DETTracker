@@ -229,7 +229,8 @@ class DeepSORTPlus:
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         elif mode == 'maha_cos':
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
-            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
+            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_cos*prob_dis)
         else:
