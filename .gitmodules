@@ -1,0 +1,3 @@
+[submodule "compare/UMA-MOT"]
+	path = compare/UMA-MOT
+	url = https://github.com/yinjunbo/UMA-MOT.git
