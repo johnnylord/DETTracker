@@ -92,10 +92,9 @@ class ContextTrack(BaseTrack):
 
     def update_feature(self, feature):
         """Update ReID feature pool"""
-        if not self.occluded:
-            self.feature_pool.append(feature)
-            if len(self.feature_pool) >= self.pool_size:
-                self.feature_pool = self.feature_pool[1:]
+        self.feature_pool.append(feature)
+        if len(self.feature_pool) >= self.pool_size:
+            self.feature_pool = self.feature_pool[1:]
 
     def iou_dist(self, bboxes):
         """Return iou distance vectors between track and bboxes
@@ -177,3 +176,7 @@ class ContextTrack(BaseTrack):
                                         lower=True)
         squared_maha = np.sum(z*z, axis=0)
         return squared_maha
+
+    def compensate(x_offset, y_offset):
+        self.mean[0] += x_offset
+        self.mean[1] += y_offset

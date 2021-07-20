@@ -75,9 +75,13 @@ class DeepSORTPlus:
         # Determine Track Occlusion status
         self._determine_track_occlusion()
 
+        # Determine global motion of camera
+        x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
+
         # Carry Track State from previous frame to current frame
         for track in self.tracks:
             track.predict()
+            track.compensate(x_offset, y_offset)
 
         # Extract detected objects
         oboxes, omasks, ofeatures = [], [], []
@@ -316,3 +320,38 @@ class DeepSORTPlus:
                     occluded = True
                     break
             track.occluded = occluded
+
+    def _get_camera_motion(self, flowmap, bboxes):
+        """Return camera motion (x_offset, y_offset) from flowmap
+
+        Argument:
+            flowmap (tensor): tensor of shape (H, W, 2)
+            bboxes (list): list of bounding boxes
+
+        Format of flowmap:
+            The value range of flow map is unbounded. In each pixel, there is
+            a 2D xy pixel offset vector between consecutive frame.
+
+        Format of bboxes:
+            Each box in bboxes is represented as:
+                (trackId, xmin, ymin, width, height, conf, 128 dim features...)
+            (xmin, ymin , width, height) is in pixel coordinate
+        """
+        x_flow = flowmap[..., 0].numpy()
+        y_flow = flowmap[..., 1].numpy()
+
+        for box in bboxes:
+            xmin = int(box[1])
+            ymin = int(box[2])
+            xmax = xmin + int(box[3])
+            ymax = ymin + int(box[4])
+            x_flow[ymin:ymax, xmin:xmax] = 12345
+            y_flow[ymin:ymax, xmin:xmax] = 12345
+
+        x_mask = np.where(x_flow != 12345)
+        y_mask = np.where(y_flow != 12345)
+
+        x_offset = np.mean(x_flow[x_mask].reshape(-1))
+        y_offset = np.mean(y_flow[y_mask].reshape(-1))
+
+        return x_offset, y_offset

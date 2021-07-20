@@ -63,7 +63,7 @@ MRCNN    52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7
 ```
                          IDF1   IDP   IDR  Rcll  Prcn  GT  MT  PT  ML    FP    FN IDs   FM  MOTA  MOTP IDt IDa IDm
 DeepSORT                52.0% 68.0% 42.1% 50.9% 82.3% 517 109 243 165 12094 54155 342 1216 39.7% 0.207 194 184  77
-DeepSORTPlus(maha2+g3)  51.1% 66.9% 41.3% 50.9% 82.4% 517 104 248 165 12033 54236 394 1224 39.6% 0.207 231 217  85
+DeepSORTPlus(maha2+g3)  50.9% 66.5% 41.2% 50.9% 82.2% 517 109 242 166 12161 54174 366 1222 39.6% 0.207 228 193  86
 ```
 > The possible reason why deepsortplus is not superior to deepsort on MOT16 is that depth estimation in outdoor environments is less stable and accurate compared to indoor environments representing in NTU-MOTD.
 
