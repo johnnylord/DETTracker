@@ -177,6 +177,6 @@ class ContextTrack(BaseTrack):
         squared_maha = np.sum(z*z, axis=0)
         return squared_maha
 
-    def compensate(x_offset, y_offset):
+    def compensate(self, x_offset, y_offset):
         self.mean[0] += x_offset
         self.mean[1] += y_offset
