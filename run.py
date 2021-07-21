@@ -9,6 +9,7 @@ import torchvision.transforms as T
 from tqdm import tqdm
 
 from data.dataset.motsequence import MOTDSequence
+from tracker.sort import SORT
 from tracker.deepsort import DeepSORT
 from tracker.deepsortplus import DeepSORTPlus
 from utils.display import get_color, draw_box, draw_text
@@ -37,7 +38,9 @@ def main(args):
                                 (sequence.imgWidth, sequence.imgHeight))
 
     # Load Trackor
-    if args['tracker'] == 'DeepSORT':
+    if args['tracker'] == 'SORT':
+        tracker_cls = SORT
+    elif args['tracker'] == 'DeepSORT':
         tracker_cls = DeepSORT
     elif args['tracker'] == 'DeepSORTPlus':
         tracker_cls = DeepSORTPlus
