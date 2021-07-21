@@ -1,3 +1,6 @@
 [submodule "compare/UMA-MOT"]
 	path = compare/UMA-MOT
 	url = https://github.com/yinjunbo/UMA-MOT.git
+[submodule "compare/Towards-Realtime-MOT"]
+	path = compare/Towards-Realtime-MOT
+	url = https://github.com/Zhongdao/Towards-Realtime-MOT.git
