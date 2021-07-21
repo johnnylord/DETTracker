@@ -84,12 +84,13 @@ YOLOv5   75.8% 76.6% 74.9% 95.1% 97.5% 64 64  0  0  728 1461  80  594 92.3% 0.10
 
 #### NTU-MOTD with different trackers but same detector (MRCNN)
 ```
-                         IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP  FN IDs   FM  MOTA  MOTP IDt IDa IDm
-DeepSORT(cos+g2)        74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318 735  94  432 89.3% 0.135  30  45   0
-DeepSORTPlus(maha2+g2)  84.7% 83.6% 85.7% 97.2% 95.0% 64 64  0  0 1505 839  81  485 91.8% 0.133  39  26   0
-DeepSORTPlus(cos+g3)    89.1% 88.1% 90.0% 97.0% 95.1% 64 64  0  0 1467 899  69  496 91.8% 0.132  23  25   0
-DeepSORTPlus(maha3+g3)  87.3% 86.2% 88.2% 97.0% 95.1% 64 64  0  0 1485 872  57  487 91.8% 0.132  21  22   0
-DeepSORTPlus(maha2+g3)  87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454 857  57  492 92.0% 0.132  23  21   1
+                         IDF1   IDP   IDR  Rcll  Prcn GT MT PT ML   FP   FN IDs   FM  MOTA  MOTP IDt IDa IDm
+UMA                     35.5% 33.9% 37.2% 96.3% 87.8% 64 64  0  0 3933 1104 898  513 79.9% 0.162 465 177   6
+DeepSORT(cos+g2)        74.9% 72.8% 76.9% 97.5% 92.6% 64 64  0  0 2318  735  94  432 89.3% 0.135  30  45   0
+DeepSORTPlus(maha2+g2)  84.7% 83.6% 85.7% 97.2% 95.0% 64 64  0  0 1505  839  81  485 91.8% 0.133  39  26   0
+DeepSORTPlus(cos+g3)    89.1% 88.1% 90.0% 97.0% 95.1% 64 64  0  0 1467  899  69  496 91.8% 0.132  23  25   0
+DeepSORTPlus(maha3+g3)  87.3% 86.2% 88.2% 97.0% 95.1% 64 64  0  0 1485  872  57  487 91.8% 0.132  21  22   0
+DeepSORTPlus(maha2+g3)  87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454  857  57  492 92.0% 0.132  23  21   1
 ```
 > cos => cosine similarity to construct cost matrix  
 > mahaX => softmax mahalanobis distance with degree of X cosine similarity to construct cost matrix  
