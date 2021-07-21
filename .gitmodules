@@ -4,3 +4,6 @@
 [submodule "compare/Towards-Realtime-MOT"]
 	path = compare/Towards-Realtime-MOT
 	url = https://github.com/Zhongdao/Towards-Realtime-MOT.git
+[submodule "compare/MOTDT"]
+	path = compare/MOTDT
+	url = https://github.com/longcw/MOTDT.git
