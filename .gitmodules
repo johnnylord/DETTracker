@@ -4,6 +4,3 @@
 [submodule "compare/Towards-Realtime-MOT"]
 	path = compare/Towards-Realtime-MOT
 	url = https://github.com/Zhongdao/Towards-Realtime-MOT.git
-[submodule "compare/tracking_wo_bnw"]
-	path = compare/tracking_wo_bnw
-	url = https://github.com/phil-bergmann/tracking_wo_bnw.git
