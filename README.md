@@ -144,4 +144,4 @@ DeepSORTPlus(maha2+g3)  87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454  857   57
 ```
 
 Preview of 5p\_sa\_um\_up.msv video sequence
-![sequence](https://i.imgur.com/P2adIPp.jpg)
+![sequence](https://i.imgur.com/UVlDYld.mp4)
