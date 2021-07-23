@@ -117,13 +117,10 @@ if __name__ == "__main__":
     parser.add_argument("--sequence", required=True, help="sequence directory")
     parser.add_argument("--result", required=True, help="intermediate result pickle file")
     parser.add_argument("--detector",
-            default='default-processed-market1501-mask-all',
+            default='mrcnn-processed-mask',
             choices=[
-                'default',
-                'default-processed-mask',
-                'default-processed-market1501-mask',
-                'default-processed-mask-all',
-                'default-processed-market1501-mask-all',
+                'default-processed',
+                'mrcnn-processed-mask',
                 ],
             help="default detector")
     parser.add_argument("--silent", action='store_true')
