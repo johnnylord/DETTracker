@@ -97,6 +97,9 @@ DeepSORTPlus(maha2+g2)  84.7% 83.6% 85.7% 97.2% 95.0% 64 64  0  0 1505  839   81
 DeepSORTPlus(cos+g3)    89.1% 88.1% 90.0% 97.0% 95.1% 64 64  0  0 1467  899   69 496 91.8% 0.132  23   26   0
 DeepSORTPlus(maha3+g3)  87.3% 86.2% 88.2% 97.0% 95.1% 64 64  0  0 1485  872   57 487 91.8% 0.132  21   22   0
 DeepSORTPlus(maha2+g3)  87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454  857   57 492 92.0% 0.132  23   21   1
+
+DeepSORTPlus(Midas)     87.3% 86.2% 88.2% 97.0% 95.1% 64 64  0  0 1485  872 57 487 91.8% 0.132  21  22   0
+DeepSORTPlus(Lidar)     87.9% 86.7% 88.8% 97.2% 95.2% 64 64  0  0 1463  821 45 487 92.1% 0.132  19  19   1
 ```
 > cos => cosine similarity to construct cost matrix  
 > mahaX => softmax mahalanobis distance with degree of X cosine similarity to construct cost matrix  
