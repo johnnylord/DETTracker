@@ -135,6 +135,10 @@ class DeepSORTPlus:
                                             observations,
                                             threshold=self.maha_cos_dist_threshold,
                                             mode='maha_cos')
+                                            # threshold=self.cos_dist_threshold,
+                                            # mode='cos')
+                                            # threshold=self.iou_dist_threshold,
+                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -144,6 +148,8 @@ class DeepSORTPlus:
                                             observations,
                                             threshold=self.cos_dist_threshold,
                                             mode='cos')
+                                            # threshold=self.iou_dist_threshold,
+                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -153,6 +159,10 @@ class DeepSORTPlus:
                                             observations,
                                             threshold=self.iou_dist_threshold,
                                             mode='iou')
+                                            # threshold=self.cos_dist_threshold,
+                                            # mode='cos')
+                                            # threshold=self.iou_dist_threshold,
+                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
