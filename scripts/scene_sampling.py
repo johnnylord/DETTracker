@@ -5,7 +5,7 @@ import random
 
 
 def main(args):
-    midas_dirs = [ osp.join(args['dataset'], seq, 'midas') for seq in os.listdir(args['dataset']) ]
+    midas_dirs = [ osp.join(args['dataset'], seq, 'img1') for seq in os.listdir(args['dataset']) ]
 
     # Collect all depth maps
     all_files = []
@@ -23,6 +23,9 @@ def main(args):
             content = f.read()
 
         output = osp.join(args['output'], f"{idx}.jpg")
+        if not osp.exists(osp.dirname(output)):
+            os.makedirs(osp.dirname(output))
+
         with open(output, 'wb') as f:
             f.write(content)
 
