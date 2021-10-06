@@ -22,6 +22,8 @@ class MOTSequence:
     MOT16DET_COLUMNS = [ "Frame", "Track", "Xmin", "Ymin", "Width", "Height", "Conf", "X", "Y", "Z" ]
 
     DETECTOR_TABLE = {
+        # =========== RAW Dataset ===================
+        'default': 'det.txt',
         # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'det-processed.txt',
         'frcnn-processed': 'det-frcnn-processed.txt',
@@ -34,6 +36,8 @@ class MOTSequence:
         'mrcnn-processed-mask': 'det-mrcnn-processed-mask.txt',
     }
     GT_TABLE = {
+        # =========== RAW Dataset ===================
+        'default': 'gt.txt',
         # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'gt.txt',
         'frcnn-processed': 'gt.txt',
@@ -62,8 +66,9 @@ class MOTSequence:
         # Sanity Check
         assert (mode == 'train' or mode =='test')
         assert (
+            detector == 'default'
             # =================== DeepSORT ======================
-            detector == 'default-processed'
+            or detector == 'default-processed'
             or detector == 'frcnn-processed'
             or detector == 'poi-processed'
             # =================== DeepSORTPlus ==================

@@ -12,9 +12,10 @@ from model.resnet import resnet50_reid
 
 LOOKUP = {
     # Default detector with MOTreID feature
-    'default-processed': 'default-processed.txt',
-    'frcnn-processed': 'frcnn-processed.txt',
-    'poi-processed': 'poi-processed.txt',
+    'default': 'det-processed.txt',
+    # 'default-processed': 'default-processed.txt',
+    # 'frcnn-processed': 'frcnn-processed.txt',
+    # 'poi-processed': 'poi-processed.txt',
 }
 def main(args):
     # ReID data preprocessing
