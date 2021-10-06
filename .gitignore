@@ -1,6 +1,7 @@
 run/
 output/
 answer/
+experiments/
 prediction/
 __pycache__/
 .ipynb_checkpoints/
