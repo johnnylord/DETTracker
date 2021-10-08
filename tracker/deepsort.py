@@ -17,7 +17,7 @@ class DeepSORT:
                 n_degree=4,
                 pool_size=100,
                 iou_dist_threshold=0.3,
-                cos_dist_threshold=0.3,
+                cos_dist_threshold=0.5,
                 nms_iou_threshold=0.5,
                 **kwargs):
         # Track Management

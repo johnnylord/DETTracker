@@ -118,7 +118,8 @@ if __name__ == "__main__":
     # Assoication setting
     parser.add_argument("--degree", default=4, type=int, help="degree of freedom of kalman state")
     parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="threshold for iou distance")
-    parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
+    # parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
+    parser.add_argument("--cos_dist_threshold", default=0.4, type=float, help="threshold for cos distance")
     parser.add_argument("--maha_iou_dist_threshold", default=0.5, type=float, help="threshold for maha iou distance")
     parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance")
     # Pseudo depth space setting

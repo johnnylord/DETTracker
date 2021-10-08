@@ -14,6 +14,7 @@ def main(args):
             "--detector", args['detector'],
             "--tracker", args['tracker'],
             "--degree", args['degree'],
+            "--output", args['output'],
             ])
         proc = subprocess.Popen(cmdline, shell=True)
         proc.wait()
@@ -25,5 +26,6 @@ if __name__ == "__main__":
     parser.add_argument("--tracker", default='DeepSORT', type=str, help="which tracker to use")
     parser.add_argument("--detector", default='mrcnn-processed-mask', type=str, help="which detector to use")
     parser.add_argument("--degree", default=3, type=str, help="degree of freedom of kalman state")
+    parser.add_argument("--output", default='output', help="output directoty")
     args = vars(parser.parse_args())
     main(args)
