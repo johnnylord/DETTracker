@@ -185,3 +185,7 @@ OVERALL  52.5% 68.8% 42.5% 50.8% 82.2% 517 106 246 165 12155 54340 323  1207 39.
 5p_sa_um_up.msv 70.5% 68.9% 72.2% 97.5% 93.0%  5  5  0  0  150  52   9   33 89.7% 0.148   5   1   0
 OVERALL         87.0% 86.0% 87.9% 97.1% 95.2% 64 64  0  0 1454 857  57  492 92.0% 0.132  23  21   1
 ```
+
+## PLAN
+Change object detection minimum threshold (0.8, 0.6, 0.4)
+Change active tentative detection confidence (0.6, 0.8)

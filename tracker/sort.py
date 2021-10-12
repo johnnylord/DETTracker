@@ -16,7 +16,7 @@ class SORT:
                 n_dead=30,
                 n_degree=4,
                 iou_dist_threshold=0.3,
-                nms_iou_threshold=0.5,
+                nms_iou_threshold=1.0,
                 **kwargs):
         # Track Management
         self.n_init = n_init

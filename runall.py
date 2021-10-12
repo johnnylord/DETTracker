@@ -12,28 +12,28 @@ def main(args):
             sys.executable, "run.py",
             "--sequence", sequence_dir,
             # Dataset
-            "--detector", args['detector'],
-            "--min_obj_conf", args['min_obj_conf'],
+            "--detector", str(args['detector']),
+            "--min_obj_conf", str(args['min_obj_conf']),
             # Tracker
-            "--tracker", args['tracker'],
-            "--nms_iou_threshold", args['nms_iou_threshold'],
+            "--tracker", str(args['tracker']),
+            "--nms_iou_threshold", str(args['nms_iou_threshold']),
             # Track Management
-            "--n_init", args['n_init'],
-            "--n_lost", args['n_lost'],
-            "--n_dead", args['n_dead'],
-            "--pool_size", args['pool_size'],
+            "--n_init", str(args['n_init']),
+            "--n_lost", str(args['n_lost']),
+            "--n_dead", str(args['n_dead']),
+            "--pool_size", str(args['pool_size']),
             # Association
-            "--degree", args['degree'],
-            "--iou_dist_threshold", args['iou_dist_threshold'],
-            "--cos_dist_threshold", args['cos_dist_threshold'],
-            "--maha_iou_dist_threshold", args['maha_iou_dist_threshold'],
-            "--maha_cos_dist_threshold", args['maha_cos_dist_threshold'],
+            "--degree", str(args['degree']),
+            "--iou_dist_threshold", str(args['iou_dist_threshold']),
+            "--cos_dist_threshold", str(args['cos_dist_threshold']),
+            "--maha_iou_dist_threshold", str(args['maha_iou_dist_threshold']),
+            "--maha_cos_dist_threshold", str(args['maha_cos_dist_threshold']),
             # Pseudo depth space setting
-            "--max_depth", args['max_depth'],
-            "--n_levels", args['n_levels'],
+            "--max_depth", str(args['max_depth']),
+            "--n_levels", str(args['n_levels']),
             # Runtime setting
             # =========================================================================
-            "--output", args['output'],
+            "--output", str(args['output']),
             ])
         proc = subprocess.Popen(cmdline, shell=True)
         proc.wait()
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="threshold for iou distance")
     parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
     parser.add_argument("--maha_iou_dist_threshold", default=0.5, type=float, help="threshold for maha iou distance")
-    parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance")
+    parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance") # 0.4 0.6 0.8
     # Pseudo depth space setting
     parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
     parser.add_argument("--n_levels", default=20, type=float, help="number of intervals between depth range")
