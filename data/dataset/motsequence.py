@@ -190,31 +190,41 @@ class MOTDSequence(MOTSequence):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # All depth maps
-        midasDir = osp.join(self.root, 'midas')
-        self.depthmaps = sorted([ osp.join(midasDir, f) for f in os.listdir(midasDir) ])
-        # All flow maps
-        flowDir = osp.join(self.root, 'flow')
-        self.flows = sorted([ osp.join(flowDir, f) for f in os.listdir(flowDir) ])
+        try:
+            # All depth maps
+            midasDir = osp.join(self.root, 'midas')
+            self.depthmaps = sorted([ osp.join(midasDir, f) for f in os.listdir(midasDir) ])
+        except Exception as e:
+            self.depthmaps = [None]*len(self.imgs)
+
+        try:
+            # All flow maps
+            flowDir = osp.join(self.root, 'flow')
+            self.flows = sorted([ osp.join(flowDir, f) for f in os.listdir(flowDir) ])
+        except Exception as e:
+            self.flows = [None]*len(self.imgs)
+
         # Sanity Check
-        for img, depthmap, flow in zip(self.imgs, self.depthmaps, self.flows):
-            imgFile = int(osp.basename(img).split(".")[0])
-            mapFile = int(osp.basename(depthmap).split(".")[0])
-            floFile = int(osp.basename(flow).split(".")[0])
-            assert imgFile == mapFile == floFile
+        assert len(self.imgs) == len(self.depthmaps) == len(self.flows)
 
     def __getitem__(self, idx):
         img, tboxes, bboxes, masks = super().__getitem__(idx)
 
         # Extract depth map
-        mapPath = self.depthmaps[idx]
-        depthmap = Image.open(mapPath)
-        depthmap = self.imgTransform(depthmap)
+        if self.depthmaps[idx] is not None:
+            mapPath = self.depthmaps[idx]
+            depthmap = Image.open(mapPath)
+            depthmap = self.imgTransform(depthmap)
+        else:
+            depthmap = None
 
         # Extract flow map
-        floPath = self.flows[idx]
-        flow = self._readflow(floPath)
-        flow = torch.tensor(flow)
+        if self.flows[idx] is not None:
+            floPath = self.flows[idx]
+            flow = self._readflow(floPath)
+            flow = torch.tensor(flow)
+        else:
+            flow = None
 
         return img, depthmap, flow, tboxes, bboxes, masks
 
@@ -231,18 +241,35 @@ class MOTDSequence(MOTSequence):
 
 
 if __name__ == "__main__":
-    print("Normal Sequence")
-    sequence = MOTSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='poi-processed', mode='train')
-    img, tboxes, bboxes, masks = sequence[100]
-    print(img.shape)
-    print(len(tboxes))
-    print(len(bboxes))
-    print(len(masks))
-
-    print("Depth Sequence")
-    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT16/train/MOT16-02", detector='poi-processed', mode='train')
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT/MOT16/train/MOT16-02", detector='mrcnn-processed-mask', mode='train')
     img, depthmap, flowmap, tboxes, bboxes, masks = sequence[100]
-    print(img.shape, depthmap.shape, flowmap.shape)
-    print(len(tboxes))
-    print(len(bboxes))
-    print(len(masks))
+    print("MOT16-02 =>")
+    print("Image:", img.shape)
+    print("Depth:", depthmap.shape)
+    print("Flow:", flowmap.shape)
+    print("GT Boxes:", len(tboxes))
+    print("Boxes:", len(bboxes))
+    print("Masks:", len(masks))
+    print()
+
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT/NTU-MOTD/test/3p_da_pm_pp.msv", detector='mrcnn-processed-mask', mode='train')
+    img, depthmap, flowmap, tboxes, bboxes, masks = sequence[100]
+    print("3p_da_pm_pp.msv =>")
+    print("Image:", img.shape)
+    print("Depth:", depthmap.shape)
+    print("Flow:", flowmap.shape)
+    print("GT Boxes:", len(tboxes))
+    print("Boxes:", len(bboxes))
+    print("Masks:", len(masks))
+    print()
+
+    sequence = MOTDSequence(root="/home/johnnylord/dataset/MOT/MOT20/train/MOT20-01/", detector='default', mode='train')
+    img, depthmap, flowmap, tboxes, bboxes, masks = sequence[100]
+    print("MOT20-01 =>")
+    print("Image:", img.shape)
+    print("Depth:", depthmap.shape)
+    print("Flow:", flowmap == None)
+    print("GT Boxes:", len(tboxes))
+    print("Boxes:", len(bboxes))
+    print("Masks:", len(masks))
+    print()

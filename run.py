@@ -8,7 +8,7 @@ import numpy as np
 import torchvision.transforms as T
 from tqdm import tqdm
 
-from data.dataset.motsequence import MOTDSequence
+from data.dataset.motsequence import MOTDSequence, MOTSequence
 from tracker.sort import SORT
 from tracker.deepsort import DeepSORT
 from tracker.deepsortplus import DeepSORTPlus
@@ -118,8 +118,7 @@ if __name__ == "__main__":
     # Assoication setting
     parser.add_argument("--degree", default=4, type=int, help="degree of freedom of kalman state")
     parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="threshold for iou distance")
-    # parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
-    parser.add_argument("--cos_dist_threshold", default=0.4, type=float, help="threshold for cos distance")
+    parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
     parser.add_argument("--maha_iou_dist_threshold", default=0.5, type=float, help="threshold for maha iou distance")
     parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance")
     # Pseudo depth space setting
@@ -127,8 +126,6 @@ if __name__ == "__main__":
     parser.add_argument("--n_levels", default=20, type=float, help="number of intervals between depth range")
     # Runtime setting
     # =========================================================================
-    parser.add_argument("--verbose", action='store_true', help="show information on terminal")
-    parser.add_argument("--display", action='store_true', help="show processing result with opencv")
     parser.add_argument("--export", action='store_true', help="save processing result to process.mp4")
     parser.add_argument("--output", default='output', help="output directoty")
 
