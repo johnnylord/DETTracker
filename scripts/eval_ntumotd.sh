@@ -7,10 +7,10 @@ fi
 
 NAME=$(basename $2)
 
-rm -rf /tmp/${NAME}
-cp -r $2 /tmp/${NAME}
+rm -rf "/tmp/${NAME}"
+cp -r $2 "/tmp/${NAME}"
 
-mv /tmp/${NAME}/**/*.txt /tmp/${NAME}
-find /tmp/${NAME} -maxdepth 1 -mindepth 1 -type d -exec rm rf '{}' \;
+find "/tmp/${NAME}" -type f -regex ".*\.txt" -exec mv '{}' "/tmp/${NAME}" \;
+find "/tmp/${NAME}" -maxdepth 1 -mindepth 1 -type d -exec rm -rf '{}' \;
 
-python -m motmetrics.apps.evaludateTracking $1 $2 seqmaps/NTU-MOTD
+python3 -m motmetrics.apps.evaluateTracking $1 "/tmp/${NAME}" seqmaps/NTU-MOTD
