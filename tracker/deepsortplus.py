@@ -75,28 +75,31 @@ class DeepSORTPlus:
         # Determine Track Occlusion status
         self._determine_track_occlusion()
 
-        # Determine global motion of camera
-        x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
+        # (MUTE) Determine global motion of camera
+        # x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
 
         # Carry Track State from previous frame to current frame
         for track in self.tracks:
             track.predict()
-            # track.compensate(x_offset, y_offset)
+            # (MUTE) track.compensate(x_offset, y_offset)
 
         # Extract detected objects
-        oboxes, omasks, ofeatures = [], [], []
+        oboxes, oconfs, omasks, ofeatures = [], [], [], []
         for box, mask in zip(bboxes, masks):
             if int(box[3])*int(box[4]) == 0:
                 continue
             tlbr = tlwh_to_tlbr(box[1:1+4])
+            conf = [box[5]]
             feature = box[-128:]
-            assert len(tlbr) == 4 and len(feature) == 128
+            assert len(tlbr) == 4 and len(conf) == 1 and len(feature) == 128
             oboxes.append(tlbr)
+            oconfs.append(conf)
             omasks.append(mask)
             ofeatures.append(feature)
 
         # Convert to numpy foramt
         oboxes = np.array(oboxes)         # (N, 4)
+        oconfs = np.array(oconfs)         # (N, 1)
         ofeatures = np.array(ofeatures)   # (N, 128)
 
         # Add depth information to boxes
@@ -104,7 +107,7 @@ class DeepSORTPlus:
 
         # Aggregate observations
         if len(oboxes) > 0:
-            observations = np.concatenate([ oboxes, ofeatures ], axis=1)  # (N, 133)
+            observations = np.concatenate([ oboxes, oconfs, ofeatures ], axis=1)  # (N, 5+1+128)
         else:
             observations = np.array([])
 
@@ -184,15 +187,18 @@ class DeepSORTPlus:
         for observation in observations:
             # Unpack observation
             box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
+            conf = observation[5]
             feature = observation[-128:]
-            track = ContextTrack(box, feature,
-                            n_levels=self.n_levels,
-                            max_depth=self.max_depth,
-                            pool_size=self.pool_size,
-                            n_init=self.n_init,
-                            n_lost=self.n_lost,
-                            n_dead=self.n_dead)
-            self.tracks.append(track)
+            # Filter out false positive tracks
+            if conf > 0.7:
+                track = ContextTrack(box, feature,
+                                n_levels=self.n_levels,
+                                max_depth=self.max_depth,
+                                pool_size=self.pool_size,
+                                n_init=self.n_init,
+                                n_lost=self.n_lost,
+                                n_dead=self.n_dead)
+                self.tracks.append(track)
 
         # Remove dead track
         self.tracks = [ track
@@ -243,6 +249,7 @@ class DeepSORTPlus:
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         elif mode == 'maha_cos':
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
+            # EXP: change n_degrees to 2 or 3
             # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
             prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
@@ -289,22 +296,25 @@ class DeepSORTPlus:
         """
         new_boxes = []
         for box, mask in zip(boxes, masks):
-            # Unpack bbox
-            xmin = int(box[0])
-            ymin = int(box[1])
-            xmax = int(box[2])
-            ymax = int(box[3])
-            # Crop the pixels from depthmap
-            pixels = depthmap[0, int(ymin):int(ymax), int(xmin):int(xmax)].numpy()
-            if tuple(pixels.shape) != tuple(mask.shape):
-                mask = cv2.resize(mask, (pixels.shape[1], pixels.shape[0]))
-            # Align pixels with mask
-            pixels = pixels.reshape(-1)
-            mask = mask.reshape(-1)
-            mask = (mask > 200)
-            # Filter out depth value
-            depth = self.max_depth*(1-np.mean(pixels[mask]))
-            new_boxes.append(box.tolist()+[depth])
+            if mask is not None:
+                # Unpack bbox
+                xmin = int(box[0])
+                ymin = int(box[1])
+                xmax = int(box[2])
+                ymax = int(box[3])
+                # Crop the pixels from depthmap
+                pixels = depthmap[0, int(ymin):int(ymax), int(xmin):int(xmax)].numpy()
+                if tuple(pixels.shape) != tuple(mask.shape):
+                    mask = cv2.resize(mask, (pixels.shape[1], pixels.shape[0]))
+                # Align pixels with mask
+                pixels = pixels.reshape(-1)
+                mask = mask.reshape(-1)
+                mask = (mask > 200)
+                # Filter out depth value
+                depth = self.max_depth*(1-np.mean(pixels[mask]))
+                new_boxes.append(box.tolist()+[depth])
+            else:
+                new_boxes.append(box.tolist()+[0])
 
         return np.array(new_boxes)
 
