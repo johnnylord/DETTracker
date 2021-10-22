@@ -1,7 +1,12 @@
+import os
+import os.path as osp
 import traceback
 import cv2
 import numpy as np
+import torch
+import torchvision.transforms as T
 from scipy.optimize import linear_sum_assignment
+
 from track.base import TrackState
 from track.motion.kalman3d import chi2inv95
 from track.deepsortplus import ContextTrack
@@ -9,8 +14,12 @@ from track.utils.convert import tlwh_to_tlbr
 from utils.sample import sample_mean
 from utils.function import softmax
 
+from model.resnet import resnet50_reid
+from data.dataset.motreid import MOTreID
+
 
 class DeepSORTPlus:
+    REID_CHECKPOINT = osp.join(osp.dirname(osp.dirname(__file__)), 'run/motreid/best.pth')
 
     def __init__(self,
                 n_init=3,
@@ -24,6 +33,7 @@ class DeepSORTPlus:
                 cos_dist_threshold=0.3,
                 maha_iou_dist_threshold=0.5,
                 maha_cos_dist_threshold=0.5,
+                device="cuda",
                 **kwargs):
         # Track Management
         self.n_init = n_init
@@ -40,6 +50,21 @@ class DeepSORTPlus:
         self.pool_size = pool_size
         # Tracker state
         self.tracks = []
+        # ReID Model
+        self.device = device if torch.cuda.is_available() else "cpu"
+        self.model = resnet50_reid(features=128, classes=1)
+        checkpoint = torch.load(DeepSORTPlus.REID_CHECKPOINT, map_location={"cuda:1": "cuda:0"})
+        self.model.load_state_dict(checkpoint['model'])
+        self.model.to(self.device)
+        self.model.eval()
+        # Transformation
+        self.inverse = T.ToPILImage()
+        self.transform = T.Compose([
+                            T.Resize((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                            T.ToTensor(),
+                            T.Normalize(mean=[0.485, 0.456, 0.406],
+                                        std=[0.229, 0.224, 0.225]),
+                            ])
 
     def __call__(self, img, depthmap, flowmap, bboxes, masks):
         """Perform tracking on per frame basis
@@ -75,14 +100,32 @@ class DeepSORTPlus:
         # Determine Track Occlusion status
         self._determine_track_occlusion()
 
-        # (MUTE) Determine global motion of camera
-        # x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
+        # ======================================================================
+        # Estimate possible bounding boxes with tracked tracks
+        eboxes = np.array([ track.guess()
+                            for track in self.tracks
+                            if track.state == TrackState.TRACKED ]) # (I, 5)
+        rboxes = np.array([ tlwh_to_tlbr(box[1:1+4])
+                            for box in bboxes ]) # (J, 4)
+        # Filter out overlapped estimated bboxes
+        if len(eboxes) > 0 and len(rboxes) > 0:
+            booleans = self._filter_estimated_boxes(eboxes[:, :4],
+                                                    rboxes,
+                                                    iou_threshold=0.7)
+            eboxes = eboxes[booleans]
+        # Extract estimated features
+        eboxes, efeatures = self._extract_features(img, eboxes)
+        # Concate information
+        if len(eboxes) > 0:
+            eboxes = np.array(eboxes)               # (N, 5)
+            econfs = np.ones((eboxes.shape[0], 1))  # (N, 1)
+            efeatures = np.array(efeatures)         # (N, 128)
+            assert eboxes.shape[1] == 5 and econfs.shape[1] == 1 and efeatures.shape[1] == 128
+            ebservations = np.concatenate([ eboxes, econfs, efeatures ], axis=1)
+        else:
+            ebservations = np.array([])
 
-        # Carry Track State from previous frame to current frame
-        for track in self.tracks:
-            track.predict()
-            # (MUTE) track.compensate(x_offset, y_offset)
-
+        # ======================================================================
         # Extract detected objects
         oboxes, oconfs, omasks, ofeatures = [], [], [], []
         for box, mask in zip(bboxes, masks):
@@ -111,6 +154,16 @@ class DeepSORTPlus:
         else:
             observations = np.array([])
 
+        # ======================================================================
+        # (MUTE) Determine global motion of camera
+        # x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
+
+        # Carry Track State from previous frame to current frame
+        for track in self.tracks:
+            track.predict()
+            # (MUTE) track.compensate(x_offset, y_offset)
+
+        # ======================================================================
         # No detected object in current frame
         if len(observations) == 0:
             for track in self.tracks:
@@ -131,6 +184,7 @@ class DeepSORTPlus:
         # Associate detected objects with tracks
         match_pairs = []
         unmatch_tracks = []
+        unmatch_live_tracks = []
 
         # Perform matching cascade with live tracks
         pairs, tracks, observations = self._matching_cascade(
@@ -143,7 +197,7 @@ class DeepSORTPlus:
                                             # threshold=self.iou_dist_threshold,
                                             # mode='iou')
         match_pairs.extend(pairs)
-        unmatch_tracks.extend(tracks)
+        unmatch_live_tracks.extend(tracks)
 
         # Perform matching cascade with lost tracks
         pairs, tracks, observations = self._matching_cascade(
@@ -166,6 +220,15 @@ class DeepSORTPlus:
                                             # mode='cos')
                                             # threshold=self.iou_dist_threshold,
                                             # mode='iou')
+        match_pairs.extend(pairs)
+        unmatch_tracks.extend(tracks)
+
+        # Trying to compensate false negative detections
+        pairs, tracks, ebservations = self._matching_cascade(
+                                            unmatch_live_tracks,
+                                            ebservations,
+                                            threshold=self.cos_dist_threshold,
+                                            mode='cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -375,3 +438,75 @@ class DeepSORTPlus:
         y_offset = np.mean(y_flow[y_mask].reshape(-1))
 
         return x_offset, y_offset
+
+    def _filter_estimated_boxes(self, eboxes, rboxes, iou_threshold=0.7):
+        """Return the indices of non-occupied estimated boxes
+
+        Argument:
+            eboxes (ndarray): shape (N, 4)
+            rboxes (ndarray): shape (M, 4)
+            iou_threshold (float): threshold of determined occupation
+
+        Box Format: (x_leftop, y_lefttop, x_rightbut, y_rightbut)
+        """
+        box1 = torch.tensor(eboxes)
+        box2 = torch.tensor(rboxes)
+
+        epsilon = 1e-16
+        N = box1.size(0)
+        M = box2.size(0)
+
+        lt = torch.max(
+            box1[..., :2].unsqueeze(1).expand(N, M, 2), # (N, 2) -> (N, M, 2)
+            box2[..., :2].unsqueeze(0).expand(N, M, 2), # (M, 2) -> (N, M, 2)
+            )
+        rb = torch.min(
+                box1[..., 2:].unsqueeze(1).expand(N, M, 2), # (N, 2) -> (N, M, 2)
+                box2[..., 2:].unsqueeze(0).expand(N, M, 2), # (M, 2) -> (N, M, 2)
+                )
+        wh = rb - lt                    # (N, M, 2)
+        wh[wh<0] = 0                    # Non-overlapping conditions
+        inter = wh[..., 0] * wh[..., 1] # (N, M)
+        # Compute respective areas of boxes
+        area1 = (box1[..., 2]-box1[..., 0]) * (box1[..., 3]-box1[..., 1]) # (N,)
+        area2 = (box2[..., 2]-box2[..., 0]) * (box2[..., 3]-box2[..., 1]) # (M,)
+        area1 = area1.unsqueeze(1).expand(N,M) # (N, M)
+        area2 = area2.unsqueeze(0).expand(N,M) # (N, M)
+        # Compute IoU matrix (N, M)
+        iou_mat = inter / (area1+area2-inter+epsilon)
+        iou_mat = iou_mat.clamp(0)
+
+        overlapped = iou_mat >= iou_threshold
+        booleans = (overlapped.sum(dim=1) == 0).tolist()
+        return booleans
+
+    def _extract_features(self, img, eboxes):
+        """Extract 128-dimensional feature vectors for each eboxes
+
+        Argument:
+            img (tensor): torch tensor of shape (3, H, W)
+            eboxes (ndarray): bounding box of shape (N, 4)
+
+        Box format: (x1, y1, x2, y2)
+        """
+        boxes = []
+        features = []
+        for box in eboxes:
+            xmin = int(box[0])
+            ymin = int(box[1])
+            xmax = int(box[2])
+            ymax = int(box[3])
+            try:
+                crop = img[:, ymin:ymax, xmin:xmax]
+                crop = self.inverse(crop)
+                crop = self.transform(crop)
+            except Exception as e:
+                continue
+            crop = crop.to(self.device)
+            embed = self.model(crop.unsqueeze(0))[0]
+            embed = embed.detach().cpu().numpy().tolist()
+            # Save result
+            features.append(embed)
+            boxes.append(box.tolist())
+
+        return np.array(boxes), np.array(features)

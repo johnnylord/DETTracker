@@ -64,6 +64,12 @@ class ContextTrack(BaseTrack):
             }
         return track
 
+    def guess(self):
+        mean, covar = self.kf.predict(self.mean, self.covar)
+        x1, y1, x2, y2 = xyah_to_tlbr([ mean[0], mean[1], self.mean[3], self.mean[4] ])
+        depth = mean[2]
+        return x1, y1, x2, y2, depth
+
     def predict(self):
         """Carrry track state from t-1 to t timestamp"""
         mean, covar = self.kf.predict(self.mean, self.covar)
