@@ -101,31 +101,6 @@ class DeepSORTPlus:
         self._determine_track_occlusion()
 
         # ======================================================================
-        # Estimate possible bounding boxes with tracked tracks
-        eboxes = np.array([ track.guess()
-                            for track in self.tracks
-                            if track.state == TrackState.TRACKED ]) # (I, 5)
-        rboxes = np.array([ tlwh_to_tlbr(box[1:1+4])
-                            for box in bboxes ]) # (J, 4)
-        # Filter out overlapped estimated bboxes
-        if len(eboxes) > 0 and len(rboxes) > 0:
-            booleans = self._filter_estimated_boxes(eboxes[:, :4],
-                                                    rboxes,
-                                                    iou_threshold=0.7)
-            eboxes = eboxes[booleans]
-        # Extract estimated features
-        eboxes, efeatures = self._extract_features(img, eboxes)
-        # Concate information
-        if len(eboxes) > 0:
-            eboxes = np.array(eboxes)               # (N, 5)
-            econfs = np.ones((eboxes.shape[0], 1))  # (N, 1)
-            efeatures = np.array(efeatures)         # (N, 128)
-            assert eboxes.shape[1] == 5 and econfs.shape[1] == 1 and efeatures.shape[1] == 128
-            ebservations = np.concatenate([ eboxes, econfs, efeatures ], axis=1)
-        else:
-            ebservations = np.array([])
-
-        # ======================================================================
         # Extract detected objects
         oboxes, oconfs, omasks, ofeatures = [], [], [], []
         for box, mask in zip(bboxes, masks):
@@ -155,13 +130,9 @@ class DeepSORTPlus:
             observations = np.array([])
 
         # ======================================================================
-        # (MUTE) Determine global motion of camera
-        # x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
-
         # Carry Track State from previous frame to current frame
         for track in self.tracks:
             track.predict()
-            # (MUTE) track.compensate(x_offset, y_offset)
 
         # ======================================================================
         # No detected object in current frame
@@ -177,6 +148,7 @@ class DeepSORTPlus:
                         if track.state == TrackState.TRACKED ]
             return tracked
 
+        # ======================================================================
         # Split track set by state
         live_tracks = [ t for t in self.tracks if t.state == TrackState.TRACKED ]
         lost_tracks = [ t for t in self.tracks if t.state == TrackState.LOST ]
@@ -184,9 +156,7 @@ class DeepSORTPlus:
 
         # Associate detected objects with tracks
         match_pairs = []
-        follow_pairs = []
         unmatch_tracks = []
-        unmatch_live_tracks = []
 
         # Perform matching cascade with live tracks
         pairs, tracks, observations = self._matching_cascade(
@@ -194,21 +164,27 @@ class DeepSORTPlus:
                                             observations,
                                             threshold=self.maha_cos_dist_threshold,
                                             mode='maha_cos')
-                                            # threshold=self.cos_dist_threshold,
-                                            # mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
         match_pairs.extend(pairs)
-        unmatch_live_tracks.extend(tracks)
+        pairs, tracks, observations = self._matching_cascade(
+                                            tracks,
+                                            observations,
+                                            threshold=self.cos_dist_threshold,
+                                            mode='cos')
+        match_pairs.extend(pairs)
+        unmatch_tracks.extend(tracks)
 
         # Perform matching cascade with lost tracks
         pairs, tracks, observations = self._matching_cascade(
                                             lost_tracks,
                                             observations,
+                                            threshold=self.maha_cos_dist_threshold,
+                                            mode='maha_cos')
+        match_pairs.extend(pairs)
+        pairs, tracks, observations = self._matching_cascade(
+                                            tracks,
+                                            observations,
                                             threshold=self.cos_dist_threshold,
                                             mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -216,24 +192,18 @@ class DeepSORTPlus:
         pairs, tracks, observations = self._associate(
                                             tent_tracks,
                                             observations,
+                                            threshold=self.maha_iou_dist_threshold,
+                                            mode='maha_iou')
+        match_pairs.extend(pairs)
+        pairs, tracks, observations = self._associate(
+                                            tracks,
+                                            observations,
                                             threshold=self.iou_dist_threshold,
                                             mode='iou')
-                                            # threshold=self.cos_dist_threshold,
-                                            # mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
-        # Trying to compensate false negative detections
-        pairs, tracks, ebservations = self._matching_cascade(
-                                            unmatch_live_tracks,
-                                            ebservations,
-                                            threshold=self.maha_cos_dist_threshold,
-                                            mode='maha_cos')
-        follow_pairs.extend(pairs)
-        unmatch_tracks.extend(tracks)
-
+        # =====================================================================
         # Update matched tracks and observations
         for track, observation in match_pairs:
             # Unpack observation
@@ -243,16 +213,6 @@ class DeepSORTPlus:
             track.update(box)
             track.update_feature(feature)
             track.hit()
-
-        # Update matched tracks and observations
-        for track, observation in follow_pairs:
-            # Unpack observation
-            box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
-            feature = observation[-128:]
-            assert len(box) == 5 and len(feature) == 128
-            track.update(box)
-            track.update_feature(feature)
-            track.miss()
 
         # Update unmatching tracks
         for track in unmatch_tracks:
@@ -328,11 +288,14 @@ class DeepSORTPlus:
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         elif mode == 'maha_cos':
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
-            # EXP: change n_degrees to 2 or 3
-            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
-            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=4) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_cos*prob_dis)
+        elif mode == 'maha_iou':
+            prob_iou = 1 - np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            prob_dis = np.array([ softmax(row) for row in prob_dis ])
+            cost_mat = 1 - (prob_iou*prob_dis)
         else:
             raise ValueError("Unknown mode '{mode}' for cost matrix")
 
@@ -419,82 +382,6 @@ class DeepSORTPlus:
                     occluded = True
                     break
             track.occluded = occluded
-
-    def _get_camera_motion(self, flowmap, bboxes):
-        """Return camera motion (x_offset, y_offset) from flowmap
-
-        Argument:
-            flowmap (tensor): tensor of shape (H, W, 2)
-            bboxes (list): list of bounding boxes
-
-        Format of flowmap:
-            The value range of flow map is unbounded. In each pixel, there is
-            a 2D xy pixel offset vector between consecutive frame.
-
-        Format of bboxes:
-            Each box in bboxes is represented as:
-                (trackId, xmin, ymin, width, height, conf, 128 dim features...)
-            (xmin, ymin , width, height) is in pixel coordinate
-        """
-        x_flow = flowmap[..., 0].numpy()
-        y_flow = flowmap[..., 1].numpy()
-
-        for box in bboxes:
-            xmin = int(box[1])
-            ymin = int(box[2])
-            xmax = xmin + int(box[3])
-            ymax = ymin + int(box[4])
-            x_flow[ymin:ymax, xmin:xmax] = 12345
-            y_flow[ymin:ymax, xmin:xmax] = 12345
-
-        x_mask = np.where(x_flow != 12345)
-        y_mask = np.where(y_flow != 12345)
-
-        x_offset = np.mean(x_flow[x_mask].reshape(-1))
-        y_offset = np.mean(y_flow[y_mask].reshape(-1))
-
-        return x_offset, y_offset
-
-    def _filter_estimated_boxes(self, eboxes, rboxes, iou_threshold=0.7):
-        """Return the indices of non-occupied estimated boxes
-
-        Argument:
-            eboxes (ndarray): shape (N, 4)
-            rboxes (ndarray): shape (M, 4)
-            iou_threshold (float): threshold of determined occupation
-
-        Box Format: (x_leftop, y_lefttop, x_rightbut, y_rightbut)
-        """
-        box1 = torch.tensor(eboxes)
-        box2 = torch.tensor(rboxes)
-
-        epsilon = 1e-16
-        N = box1.size(0)
-        M = box2.size(0)
-
-        lt = torch.max(
-            box1[..., :2].unsqueeze(1).expand(N, M, 2), # (N, 2) -> (N, M, 2)
-            box2[..., :2].unsqueeze(0).expand(N, M, 2), # (M, 2) -> (N, M, 2)
-            )
-        rb = torch.min(
-                box1[..., 2:].unsqueeze(1).expand(N, M, 2), # (N, 2) -> (N, M, 2)
-                box2[..., 2:].unsqueeze(0).expand(N, M, 2), # (M, 2) -> (N, M, 2)
-                )
-        wh = rb - lt                    # (N, M, 2)
-        wh[wh<0] = 0                    # Non-overlapping conditions
-        inter = wh[..., 0] * wh[..., 1] # (N, M)
-        # Compute respective areas of boxes
-        area1 = (box1[..., 2]-box1[..., 0]) * (box1[..., 3]-box1[..., 1]) # (N,)
-        area2 = (box2[..., 2]-box2[..., 0]) * (box2[..., 3]-box2[..., 1]) # (M,)
-        area1 = area1.unsqueeze(1).expand(N,M) # (N, M)
-        area2 = area2.unsqueeze(0).expand(N,M) # (N, M)
-        # Compute IoU matrix (N, M)
-        iou_mat = inter / (area1+area2-inter+epsilon)
-        iou_mat = iou_mat.clamp(0)
-
-        overlapped = iou_mat >= iou_threshold
-        booleans = (overlapped.sum(dim=1) == 0).tolist()
-        return booleans
 
     def _extract_features(self, img, eboxes):
         """Extract 128-dimensional feature vectors for each eboxes

@@ -28,6 +28,7 @@ class ContextTrack(BaseTrack):
         # initilaize reid feature sets
         self.feature_pool = [ feature ]
         self.occluded = False
+        self.guess_count = 0
 
     @property
     def tlbr(self):
@@ -64,7 +65,19 @@ class ContextTrack(BaseTrack):
             }
         return track
 
+    def follow(self):
+        super().hit()
+
+    def hit(self):
+        super().hit()
+        self.guess_count = 0
+
+    @property
+    def guessable(self):
+        return self.guess_count < 3
+
     def guess(self):
+        self.guess_count += 1
         mean, covar = self.kf.predict(self.mean, self.covar)
         x1, y1, x2, y2 = xyah_to_tlbr([ mean[0], mean[1], self.mean[3], self.mean[4] ])
         depth = mean[2]
