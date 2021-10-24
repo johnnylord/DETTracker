@@ -1,5 +1,7 @@
 import os
 import os.path as osp
+import sys
+sys.path.insert(0, osp.dirname(osp.dirname(__file__)))
 import argparse
 import pickle
 

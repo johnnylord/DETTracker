@@ -99,14 +99,14 @@ class ContextTrack(BaseTrack):
     def update_feature(self, feature):
         """Update ReID feature pool"""
         # Running with NTU-MOTD
-        if not self.occluded:
-            self.feature_pool.append(feature)
-            if len(self.feature_pool) >= self.pool_size:
-                self.feature_pool = self.feature_pool[1:]
+        # if not self.occluded:
+            # self.feature_pool.append(feature)
+            # if len(self.feature_pool) >= self.pool_size:
+                # self.feature_pool = self.feature_pool[1:]
         # Running with MOT16
-        # self.feature_pool.append(feature)
-        # if len(self.feature_pool) >= self.pool_size:
-            # self.feature_pool = self.feature_pool[1:]
+        self.feature_pool.append(feature)
+        if len(self.feature_pool) >= self.pool_size:
+            self.feature_pool = self.feature_pool[1:]
 
     def iou_dist(self, bboxes):
         """Return iou distance vectors between track and bboxes
@@ -166,16 +166,27 @@ class ContextTrack(BaseTrack):
         Note:
             A bbox is (xmin, ymin, xmax, ymax, z)
         """
-        # Convert bboxes format to state vector
+        # Convert bboxes format to state vector (x, y, a, h, z)
         observations = []
         for bbox in bboxes:
             (x, y, a, h), z = tlbr_to_xyah(bbox[:4]), bbox[4]
-            observation = np.array([ x, y, z, a, h ])
+            observation = np.array([ x, y, a, h, z ])
             observations.append(observation)
         observations = np.array(observations)
 
         # Align dimension of state vector to observations
         mean, covar = self.kf.project(self.mean, self.covar)
+
+        # Convert to (x, y, z, a, h) => (x, y, a, h, z)
+        mean = np.array([ mean[0], mean[1], mean[3], mean[4], mean[2] ])
+        z_var = covar[2, 2]
+        a_var = covar[3, 3]
+        h_var = covar[4, 4]
+        covar[2, 2] = a_var
+        covar[3, 3] = h_var
+        covar[4, 4] = z_var
+
+        # Select degree of freedom
         mean, covar = mean[:n_degrees], covar[:n_degrees, :n_degrees]
         observations = observations[:, :n_degrees]
 

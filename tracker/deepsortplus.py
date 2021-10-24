@@ -168,6 +168,7 @@ class DeepSORTPlus:
         if len(observations) == 0:
             for track in self.tracks:
                 track.miss()
+            self._filter_out_of_view(img)
             self.tracks = [ track
                             for track in self.tracks
                             if track.state != TrackState.DEAD ]
@@ -183,6 +184,7 @@ class DeepSORTPlus:
 
         # Associate detected objects with tracks
         match_pairs = []
+        follow_pairs = []
         unmatch_tracks = []
         unmatch_live_tracks = []
 
@@ -227,9 +229,9 @@ class DeepSORTPlus:
         pairs, tracks, ebservations = self._matching_cascade(
                                             unmatch_live_tracks,
                                             ebservations,
-                                            threshold=self.cos_dist_threshold,
-                                            mode='cos')
-        match_pairs.extend(pairs)
+                                            threshold=self.maha_cos_dist_threshold,
+                                            mode='maha_cos')
+        follow_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
         # Update matched tracks and observations
@@ -241,6 +243,16 @@ class DeepSORTPlus:
             track.update(box)
             track.update_feature(feature)
             track.hit()
+
+        # Update matched tracks and observations
+        for track, observation in follow_pairs:
+            # Unpack observation
+            box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
+            feature = observation[-128:]
+            assert len(box) == 5 and len(feature) == 128
+            track.update(box)
+            track.update_feature(feature)
+            track.miss()
 
         # Update unmatching tracks
         for track in unmatch_tracks:
@@ -263,6 +275,9 @@ class DeepSORTPlus:
                                 n_dead=self.n_dead)
                 self.tracks.append(track)
 
+        # Remove tracks that are out of view
+        self._filter_out_of_view(img)
+
         # Remove dead track
         self.tracks = [ track
                         for track in self.tracks
@@ -272,6 +287,7 @@ class DeepSORTPlus:
         tracked = [ track.content
                     for track in self.tracks
                     if track.state == TrackState.TRACKED ]
+
         return tracked
 
     def _matching_cascade(self, conf_tracks, observations, mode='cos', threshold=0.3):
@@ -314,7 +330,7 @@ class DeepSORTPlus:
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
             # EXP: change n_degrees to 2 or 3
             # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
-            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=4) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_cos*prob_dis)
         else:
@@ -510,3 +526,30 @@ class DeepSORTPlus:
             boxes.append(box.tolist())
 
         return np.array(boxes), np.array(features)
+
+    def _filter_out_of_view(self, img):
+        """Filter out tracks that are out of views"""
+        tracks = []
+        for track in self.tracks:
+            box = track.tlbr
+            box_width = box[2]-box[0]
+            box_height = box[3]-box[1]
+            # Check four cases
+            if box[0] < 0: # (xmin)
+                ratio = abs(box[0])/box_width
+                if ratio > 0.3:
+                    continue
+            if box[1] < 0: # (ymin)
+                ratio = abs(box[1])/box_height
+                if ratio > 0.3:
+                    continue
+            if box[2] > img.shape[2]: # (xmax: img_width)
+                ratio = abs(box[2]-img.shape[2])/box_width
+                if ratio > 0.3:
+                    continue
+            if box[3] > img.shape[1]: # (ymax: img_height)
+                ratio = abs(box[3]-img.shape[1])/box_height
+                if ratio > 0.3:
+                    continue
+            tracks.append(track)
+        self.tracks = tracks
