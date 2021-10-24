@@ -93,14 +93,14 @@ class ContextTrack(BaseTrack):
     def update_feature(self, feature):
         """Update ReID feature pool"""
         # Running with NTU-MOTD
-        if not self.occluded:
-            self.feature_pool.append(feature)
-            if len(self.feature_pool) >= self.pool_size:
-                self.feature_pool = self.feature_pool[1:]
+        # if not self.occluded:
+            # self.feature_pool.append(feature)
+            # if len(self.feature_pool) >= self.pool_size:
+                # self.feature_pool = self.feature_pool[1:]
         # Running with MOT16
-        # self.feature_pool.append(feature)
-        # if len(self.feature_pool) >= self.pool_size:
-            # self.feature_pool = self.feature_pool[1:]
+        self.feature_pool.append(feature)
+        if len(self.feature_pool) >= self.pool_size:
+            self.feature_pool = self.feature_pool[1:]
 
     def iou_dist(self, bboxes):
         """Return iou distance vectors between track and bboxes
