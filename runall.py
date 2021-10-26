@@ -34,7 +34,7 @@ def main(args):
             # Runtime setting
             # =========================================================================
             "--output", str(args['output']),
-            "--indoor" if args['indoor'] "",
+            "--indoor" if args['indoor'] else "",
             "--guess_limit", str(args['guess_limit']),
             ])
         proc = subprocess.Popen(cmdline, shell=True)

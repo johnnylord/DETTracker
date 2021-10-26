@@ -169,7 +169,6 @@ class DeepSORTPlus:
                                                 observations,
                                                 threshold=self.maha_cos_dist_threshold,
                                                 mode='maha_cos')
-            match_pairs.extend(pairs)
         else:
             pairs, tracks, observations = self._matching_cascade(
                                                 live_tracks,
@@ -182,7 +181,7 @@ class DeepSORTPlus:
                                                 observations,
                                                 threshold=self.cos_dist_threshold,
                                                 mode='cos')
-        # match_pairs.extend(pairs)
+        match_pairs.extend(pairs)
         unmatch_tracks.extend([ track
                                 for track in tracks
                                 if not track.guessable ])
@@ -211,7 +210,6 @@ class DeepSORTPlus:
             match_pairs.extend(pairs)
             pairs, tracks, observations = self._matching_cascade(
                                                 tracks,
-                                                lost_tracks,
                                                 observations,
                                                 threshold=self.cos_dist_threshold,
                                                 mode='cos')
