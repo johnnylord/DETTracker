@@ -34,7 +34,11 @@ class DeepSORTPlus:
                 maha_iou_dist_threshold=0.5,
                 maha_cos_dist_threshold=0.5,
                 device="cuda",
+                guess_limit=1,
+                indoor=False,
                 **kwargs):
+        self.indoor = indoor
+        self.guess_limit = guess_limit
         # Track Management
         self.n_init = n_init
         self.n_lost = n_lost
@@ -159,44 +163,64 @@ class DeepSORTPlus:
         unmatch_tracks = []
 
         # Perform matching cascade with live tracks
-        pairs, tracks, observations = self._matching_cascade(
-                                            live_tracks,
-                                            observations,
-                                            threshold=self.maha_cos_dist_threshold,
-                                            mode='maha_cos')
-        match_pairs.extend(pairs)
-        pairs, tracks, observations = self._matching_cascade(
-                                            tracks,
-                                            observations,
-                                            threshold=self.cos_dist_threshold,
-                                            mode='cos')
-        match_pairs.extend(pairs)
-        unmatch_tracks.extend(tracks)
+        if self.indoor:
+            pairs, tracks, observations = self._matching_cascade(
+                                                live_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+            match_pairs.extend(pairs)
+        else:
+            pairs, tracks, observations = self._matching_cascade(
+                                                live_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+            match_pairs.extend(pairs)
+            pairs, tracks, observations = self._matching_cascade(
+                                                tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
+        # match_pairs.extend(pairs)
+        unmatch_tracks.extend([ track
+                                for track in tracks
+                                if not track.guessable ])
+        # Try to compensate false positive detections
+        guessable_tracks = [ track for track in tracks if track.guessable ]
+        for track in guessable_tracks:
+            boxes = np.array([ track.guess() ])
+            _, features = self._extract_features(img, boxes[:, :4])
+            if len(features) != 0:
+                track.update(boxes[0])
+                track.update_feature(features[0])
 
         # Perform matching cascade with lost tracks
-        pairs, tracks, observations = self._matching_cascade(
-                                            lost_tracks,
-                                            observations,
-                                            threshold=self.maha_cos_dist_threshold,
-                                            mode='maha_cos')
-        match_pairs.extend(pairs)
-        pairs, tracks, observations = self._matching_cascade(
-                                            tracks,
-                                            observations,
-                                            threshold=self.cos_dist_threshold,
-                                            mode='cos')
+        if self.indoor:
+            pairs, tracks, observations = self._matching_cascade(
+                                                lost_tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
+        else:
+            pairs, tracks, observations = self._matching_cascade(
+                                                lost_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+            match_pairs.extend(pairs)
+            pairs, tracks, observations = self._matching_cascade(
+                                                tracks,
+                                                lost_tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
         # Perform matching cascade with tent tracks
         pairs, tracks, observations = self._associate(
                                             tent_tracks,
-                                            observations,
-                                            threshold=self.maha_iou_dist_threshold,
-                                            mode='maha_iou')
-        match_pairs.extend(pairs)
-        pairs, tracks, observations = self._associate(
-                                            tracks,
                                             observations,
                                             threshold=self.iou_dist_threshold,
                                             mode='iou')
@@ -232,7 +256,9 @@ class DeepSORTPlus:
                                 pool_size=self.pool_size,
                                 n_init=self.n_init,
                                 n_lost=self.n_lost,
-                                n_dead=self.n_dead)
+                                n_dead=self.n_dead,
+                                indoor=self.indoor,
+                                guess_limit=self.guess_limit)
                 self.tracks.append(track)
 
         # Remove tracks that are out of view
@@ -288,12 +314,14 @@ class DeepSORTPlus:
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         elif mode == 'maha_cos':
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
-            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_cos*prob_dis)
         elif mode == 'maha_iou':
             prob_iou = 1 - np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
-            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_iou*prob_dis)
         else:

@@ -218,13 +218,13 @@ class MOTDSequence(MOTSequence):
         else:
             depthmap = None
 
-        # Extract flow map
-        if self.flows[idx] is not None:
-            floPath = self.flows[idx]
-            flow = self._readflow(floPath)
-            flow = torch.tensor(flow)
-        else:
-            flow = None
+        # # Extract flow map
+        # if self.flows[idx] is not None:
+            # floPath = self.flows[idx]
+            # flow = self._readflow(floPath)
+            # flow = torch.tensor(flow)
+        # else:
+        flow = None
 
         return img, depthmap, flow, tboxes, bboxes, masks
 

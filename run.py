@@ -64,6 +64,9 @@ def main(args):
                 pool_size=args['pool_size'],
                 # Detection
                 nms_iou_threshold=args['nms_iou_threshold'],
+                # ======================================================
+                guess_limit=args['guess_limit'],
+                indoor=args['indoor'],
                 )
 
     # Process video frame-by-frame
@@ -110,6 +113,8 @@ if __name__ == "__main__":
     # =========================================================================
     parser.add_argument("--tracker", default="DeepSORT", type=str, help="tracker to use")
     parser.add_argument("--nms_iou_threshold", default=1.0, type=float, help="maximum bbox overlapping")
+    parser.add_argument("--indoor", action='store_true', help="indoor mode or outdoor mode")
+    parser.add_argument("--guess_limit", default=1, help="number of guessing")
     # Track Management
     parser.add_argument("--n_init", default=3, type=int, help="track activate threshold")
     parser.add_argument("--n_lost", default=3, type=int, help="track lost threshold")
