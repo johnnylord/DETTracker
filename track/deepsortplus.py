@@ -16,7 +16,7 @@ class ContextTrack(BaseTrack):
         max_depth (float): maximum depth of virtual space
         n_levels (int): number of depth levels in virtual space
     """
-    def __init__(self, box, feature, pool_size, max_depth, n_levels, **kwargs):
+    def __init__(self, box, feature, pool_size, max_depth, n_levels, guess_limit, indoor, **kwargs):
         super().__init__(**kwargs)
         self.pool_size = pool_size
         # Motion Filter
@@ -28,6 +28,11 @@ class ContextTrack(BaseTrack):
         # initilaize reid feature sets
         self.feature_pool = [ feature ]
         self.occluded = False
+        # Guess patients
+        self.guess_count = 0
+        self.guess_limit = guess_limit
+        # Environment
+        self.indoor = indoor
 
     @property
     def tlbr(self):
@@ -64,6 +69,21 @@ class ContextTrack(BaseTrack):
             }
         return track
 
+    @property
+    def guessable(self):
+        return self.guess_count < self.guess_limit
+
+    def hit(self):
+        super().hit()
+        self.guess_count = 0
+
+    def guess(self):
+        self.guess_count += 1
+        mean, covar = self.kf.predict(self.mean, self.covar)
+        x1, y1, x2, y2 = xyah_to_tlbr([ mean[0], mean[1], self.mean[3], self.mean[4] ])
+        depth = mean[2]
+        return x1, y1, x2, y2, depth
+
     def predict(self):
         """Carrry track state from t-1 to t timestamp"""
         mean, covar = self.kf.predict(self.mean, self.covar)
@@ -93,14 +113,16 @@ class ContextTrack(BaseTrack):
     def update_feature(self, feature):
         """Update ReID feature pool"""
         # Running with NTU-MOTD
-        # if not self.occluded:
-            # self.feature_pool.append(feature)
-            # if len(self.feature_pool) >= self.pool_size:
-                # self.feature_pool = self.feature_pool[1:]
-        # Running with MOT16
-        self.feature_pool.append(feature)
-        if len(self.feature_pool) >= self.pool_size:
-            self.feature_pool = self.feature_pool[1:]
+        if self.indoor:
+            if not self.occluded:
+                self.feature_pool.append(feature)
+                if len(self.feature_pool) >= self.pool_size:
+                    self.feature_pool = self.feature_pool[1:]
+        # Running with MOT16, MOT20
+        else:
+            self.feature_pool.append(feature)
+            if len(self.feature_pool) >= self.pool_size:
+                self.feature_pool = self.feature_pool[1:]
 
     def iou_dist(self, bboxes):
         """Return iou distance vectors between track and bboxes
@@ -160,16 +182,27 @@ class ContextTrack(BaseTrack):
         Note:
             A bbox is (xmin, ymin, xmax, ymax, z)
         """
-        # Convert bboxes format to state vector
+        # Convert bboxes format to state vector (x, y, a, z, h)
         observations = []
         for bbox in bboxes:
             (x, y, a, h), z = tlbr_to_xyah(bbox[:4]), bbox[4]
-            observation = np.array([ x, y, z, a, h ])
+            observation = np.array([ x, y, a, z, h ])
             observations.append(observation)
         observations = np.array(observations)
 
         # Align dimension of state vector to observations
         mean, covar = self.kf.project(self.mean, self.covar)
+
+        # MOT Series: Convert to (x, y, z, a, h) => (x, y, a, z, h)
+        mean = np.array([ mean[0], mean[1], mean[3], mean[2], mean[4] ])
+        z_var = covar[2, 2]
+        a_var = covar[3, 3]
+        h_var = covar[4, 4]
+        covar[2, 2] = a_var
+        covar[3, 3] = z_var
+        covar[4, 4] = h_var
+
+        # Select degree of freedom
         mean, covar = mean[:n_degrees], covar[:n_degrees, :n_degrees]
         observations = observations[:, :n_degrees]
 

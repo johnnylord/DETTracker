@@ -1,7 +1,12 @@
+import os
+import os.path as osp
 import traceback
 import cv2
 import numpy as np
+import torch
+import torchvision.transforms as T
 from scipy.optimize import linear_sum_assignment
+
 from track.base import TrackState
 from track.motion.kalman3d import chi2inv95
 from track.deepsortplus import ContextTrack
@@ -9,8 +14,12 @@ from track.utils.convert import tlwh_to_tlbr
 from utils.sample import sample_mean
 from utils.function import softmax
 
+from model.resnet import resnet50_reid
+from data.dataset.motreid import MOTreID
+
 
 class DeepSORTPlus:
+    REID_CHECKPOINT = osp.join(osp.dirname(osp.dirname(__file__)), 'run/motreid/best.pth')
 
     def __init__(self,
                 n_init=3,
@@ -24,7 +33,12 @@ class DeepSORTPlus:
                 cos_dist_threshold=0.3,
                 maha_iou_dist_threshold=0.5,
                 maha_cos_dist_threshold=0.5,
+                device="cuda",
+                guess_limit=1,
+                indoor=False,
                 **kwargs):
+        self.indoor = indoor
+        self.guess_limit = guess_limit
         # Track Management
         self.n_init = n_init
         self.n_lost = n_lost
@@ -40,6 +54,21 @@ class DeepSORTPlus:
         self.pool_size = pool_size
         # Tracker state
         self.tracks = []
+        # ReID Model
+        self.device = device if torch.cuda.is_available() else "cpu"
+        self.model = resnet50_reid(features=128, classes=1)
+        checkpoint = torch.load(DeepSORTPlus.REID_CHECKPOINT, map_location={"cuda:1": "cuda:0"})
+        self.model.load_state_dict(checkpoint['model'])
+        self.model.to(self.device)
+        self.model.eval()
+        # Transformation
+        self.inverse = T.ToPILImage()
+        self.transform = T.Compose([
+                            T.Resize((MOTreID.IMG_HEIGHT, MOTreID.IMG_WIDTH)),
+                            T.ToTensor(),
+                            T.Normalize(mean=[0.485, 0.456, 0.406],
+                                        std=[0.229, 0.224, 0.225]),
+                            ])
 
     def __call__(self, img, depthmap, flowmap, bboxes, masks):
         """Perform tracking on per frame basis
@@ -75,14 +104,7 @@ class DeepSORTPlus:
         # Determine Track Occlusion status
         self._determine_track_occlusion()
 
-        # (MUTE) Determine global motion of camera
-        # x_offset, y_offset = self._get_camera_motion(flowmap, bboxes)
-
-        # Carry Track State from previous frame to current frame
-        for track in self.tracks:
-            track.predict()
-            # (MUTE) track.compensate(x_offset, y_offset)
-
+        # ======================================================================
         # Extract detected objects
         oboxes, oconfs, omasks, ofeatures = [], [], [], []
         for box, mask in zip(bboxes, masks):
@@ -111,10 +133,17 @@ class DeepSORTPlus:
         else:
             observations = np.array([])
 
+        # ======================================================================
+        # Carry Track State from previous frame to current frame
+        for track in self.tracks:
+            track.predict()
+
+        # ======================================================================
         # No detected object in current frame
         if len(observations) == 0:
             for track in self.tracks:
                 track.miss()
+            self._filter_out_of_view(img)
             self.tracks = [ track
                             for track in self.tracks
                             if track.state != TrackState.DEAD ]
@@ -123,6 +152,7 @@ class DeepSORTPlus:
                         if track.state == TrackState.TRACKED ]
             return tracked
 
+        # ======================================================================
         # Split track set by state
         live_tracks = [ t for t in self.tracks if t.state == TrackState.TRACKED ]
         lost_tracks = [ t for t in self.tracks if t.state == TrackState.LOST ]
@@ -133,26 +163,56 @@ class DeepSORTPlus:
         unmatch_tracks = []
 
         # Perform matching cascade with live tracks
-        pairs, tracks, observations = self._matching_cascade(
-                                            live_tracks,
-                                            observations,
-                                            threshold=self.maha_cos_dist_threshold,
-                                            mode='maha_cos')
-                                            # threshold=self.cos_dist_threshold,
-                                            # mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
+        if self.indoor:
+            pairs, tracks, observations = self._matching_cascade(
+                                                live_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+        else:
+            pairs, tracks, observations = self._matching_cascade(
+                                                live_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+            match_pairs.extend(pairs)
+            pairs, tracks, observations = self._matching_cascade(
+                                                tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
         match_pairs.extend(pairs)
-        unmatch_tracks.extend(tracks)
+        unmatch_tracks.extend([ track
+                                for track in tracks
+                                if not track.guessable ])
+        # Try to compensate false positive detections
+        guessable_tracks = [ track for track in tracks if track.guessable ]
+        for track in guessable_tracks:
+            boxes = np.array([ track.guess() ])
+            _, features = self._extract_features(img, boxes[:, :4])
+            if len(features) != 0:
+                track.update(boxes[0])
+                track.update_feature(features[0])
 
         # Perform matching cascade with lost tracks
-        pairs, tracks, observations = self._matching_cascade(
-                                            lost_tracks,
-                                            observations,
-                                            threshold=self.cos_dist_threshold,
-                                            mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
+        if self.indoor:
+            pairs, tracks, observations = self._matching_cascade(
+                                                lost_tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
+        else:
+            pairs, tracks, observations = self._matching_cascade(
+                                                lost_tracks,
+                                                observations,
+                                                threshold=self.maha_cos_dist_threshold,
+                                                mode='maha_cos')
+            match_pairs.extend(pairs)
+            pairs, tracks, observations = self._matching_cascade(
+                                                tracks,
+                                                observations,
+                                                threshold=self.cos_dist_threshold,
+                                                mode='cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -162,13 +222,10 @@ class DeepSORTPlus:
                                             observations,
                                             threshold=self.iou_dist_threshold,
                                             mode='iou')
-                                            # threshold=self.cos_dist_threshold,
-                                            # mode='cos')
-                                            # threshold=self.iou_dist_threshold,
-                                            # mode='iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
+        # =====================================================================
         # Update matched tracks and observations
         for track, observation in match_pairs:
             # Unpack observation
@@ -197,8 +254,13 @@ class DeepSORTPlus:
                                 pool_size=self.pool_size,
                                 n_init=self.n_init,
                                 n_lost=self.n_lost,
-                                n_dead=self.n_dead)
+                                n_dead=self.n_dead,
+                                indoor=self.indoor,
+                                guess_limit=self.guess_limit)
                 self.tracks.append(track)
+
+        # Remove tracks that are out of view
+        self._filter_out_of_view(img)
 
         # Remove dead track
         self.tracks = [ track
@@ -209,6 +271,7 @@ class DeepSORTPlus:
         tracked = [ track.content
                     for track in self.tracks
                     if track.state == TrackState.TRACKED ]
+
         return tracked
 
     def _matching_cascade(self, conf_tracks, observations, mode='cos', threshold=0.3):
@@ -249,11 +312,16 @@ class DeepSORTPlus:
             cost_mat = np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
         elif mode == 'maha_cos':
             prob_cos = 1 - np.array([ t.cos_dist(features) for t in tracks ])
-            # EXP: change n_degrees to 2 or 3
-            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=3) for t in tracks ])
+            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
             prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
             prob_dis = np.array([ softmax(row) for row in prob_dis ])
             cost_mat = 1 - (prob_cos*prob_dis)
+        elif mode == 'maha_iou':
+            prob_iou = 1 - np.array([ t.iou_dist(bboxes[:, :4]) for t in tracks ])
+            # prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=self.n_degree) for t in tracks ])
+            prob_dis = np.array([ -t.square_maha_dist(bboxes, n_degrees=2) for t in tracks ])
+            prob_dis = np.array([ softmax(row) for row in prob_dis ])
+            cost_mat = 1 - (prob_iou*prob_dis)
         else:
             raise ValueError("Unknown mode '{mode}' for cost matrix")
 
@@ -341,37 +409,60 @@ class DeepSORTPlus:
                     break
             track.occluded = occluded
 
-    def _get_camera_motion(self, flowmap, bboxes):
-        """Return camera motion (x_offset, y_offset) from flowmap
+    def _extract_features(self, img, eboxes):
+        """Extract 128-dimensional feature vectors for each eboxes
 
         Argument:
-            flowmap (tensor): tensor of shape (H, W, 2)
-            bboxes (list): list of bounding boxes
+            img (tensor): torch tensor of shape (3, H, W)
+            eboxes (ndarray): bounding box of shape (N, 4)
 
-        Format of flowmap:
-            The value range of flow map is unbounded. In each pixel, there is
-            a 2D xy pixel offset vector between consecutive frame.
-
-        Format of bboxes:
-            Each box in bboxes is represented as:
-                (trackId, xmin, ymin, width, height, conf, 128 dim features...)
-            (xmin, ymin , width, height) is in pixel coordinate
+        Box format: (x1, y1, x2, y2)
         """
-        x_flow = flowmap[..., 0].numpy()
-        y_flow = flowmap[..., 1].numpy()
+        boxes = []
+        features = []
+        for box in eboxes:
+            xmin = int(box[0])
+            ymin = int(box[1])
+            xmax = int(box[2])
+            ymax = int(box[3])
+            try:
+                crop = img[:, ymin:ymax, xmin:xmax]
+                crop = self.inverse(crop)
+                crop = self.transform(crop)
+            except Exception as e:
+                continue
+            crop = crop.to(self.device)
+            embed = self.model(crop.unsqueeze(0))[0]
+            embed = embed.detach().cpu().numpy().tolist()
+            # Save result
+            features.append(embed)
+            boxes.append(box.tolist())
 
-        for box in bboxes:
-            xmin = int(box[1])
-            ymin = int(box[2])
-            xmax = xmin + int(box[3])
-            ymax = ymin + int(box[4])
-            x_flow[ymin:ymax, xmin:xmax] = 12345
-            y_flow[ymin:ymax, xmin:xmax] = 12345
+        return np.array(boxes), np.array(features)
 
-        x_mask = np.where(x_flow != 12345)
-        y_mask = np.where(y_flow != 12345)
-
-        x_offset = np.mean(x_flow[x_mask].reshape(-1))
-        y_offset = np.mean(y_flow[y_mask].reshape(-1))
-
-        return x_offset, y_offset
+    def _filter_out_of_view(self, img):
+        """Filter out tracks that are out of views"""
+        tracks = []
+        for track in self.tracks:
+            box = track.tlbr
+            box_width = box[2]-box[0]
+            box_height = box[3]-box[1]
+            # Check four cases
+            if box[0] < 0: # (xmin)
+                ratio = abs(box[0])/box_width
+                if ratio > 0.3:
+                    continue
+            if box[1] < 0: # (ymin)
+                ratio = abs(box[1])/box_height
+                if ratio > 0.3:
+                    continue
+            if box[2] > img.shape[2]: # (xmax: img_width)
+                ratio = abs(box[2]-img.shape[2])/box_width
+                if ratio > 0.3:
+                    continue
+            if box[3] > img.shape[1]: # (ymax: img_height)
+                ratio = abs(box[3]-img.shape[1])/box_height
+                if ratio > 0.3:
+                    continue
+            tracks.append(track)
+        self.tracks = tracks

@@ -34,6 +34,8 @@ def main(args):
             # Runtime setting
             # =========================================================================
             "--output", str(args['output']),
+            "--indoor" if args['indoor'] else "",
+            "--guess_limit", str(args['guess_limit']),
             ])
         proc = subprocess.Popen(cmdline, shell=True)
         proc.wait()
@@ -47,6 +49,8 @@ if __name__ == "__main__":
     # =========================================================================
     parser.add_argument("--detector", default='default', type=str, help="which detector to use")
     parser.add_argument("--min_obj_conf", default=0.8, type=float, help="detected object confidence threshold")
+    parser.add_argument("--indoor", action='store_true', help="indoor mode or outdoor mode")
+    parser.add_argument("--guess_limit", default=1, help="number of guessing")
     # Tracker setting
     # =========================================================================
     parser.add_argument("--tracker", default="DeepSORT", type=str, help="tracker to use")
@@ -61,7 +65,7 @@ if __name__ == "__main__":
     parser.add_argument("--iou_dist_threshold", default=0.3, type=float, help="threshold for iou distance")
     parser.add_argument("--cos_dist_threshold", default=0.3, type=float, help="threshold for cos distance")
     parser.add_argument("--maha_iou_dist_threshold", default=0.5, type=float, help="threshold for maha iou distance")
-    parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance") # 0.4 0.6 0.8
+    parser.add_argument("--maha_cos_dist_threshold", default=0.5, type=float, help="threshold for maha cos distance")
     # Pseudo depth space setting
     parser.add_argument("--max_depth", default=5, type=float, help="maximum depth range in meter")
     parser.add_argument("--n_levels", default=20, type=float, help="number of intervals between depth range")
