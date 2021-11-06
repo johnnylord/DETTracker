@@ -7,3 +7,6 @@
 [submodule "compare/MOTDT"]
 	path = compare/MOTDT
 	url = https://github.com/longcw/MOTDT.git
+[submodule "TrackEval"]
+	path = TrackEval
+	url = https://github.com/JonathonLuiten/TrackEval.git
