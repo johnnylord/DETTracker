@@ -342,6 +342,20 @@ class DeepSORTPlus:
 
         return pairs, unmatch_tracks, np.array(unmatch_observations)
 
+    def _sample_mean(self, dist, win_size=5, rounds=100):
+        """Return the sampled mean from the distribution
+
+        Args:
+            dist (ndarray): data distribution
+            win_size (int): size of sampling window
+            rounds (int): number of samplings
+        """
+        means = []
+        for i in range(rounds):
+            samples = np.random.choice(dist, size=win_size, replace=True)
+            means.append(samples.mean())
+        return means, np.array(means).mean()
+
     def _add_depth(self, depthmap, boxes, masks):
         """Append depth (z) dimension to existing boxes
 
