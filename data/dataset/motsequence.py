@@ -27,6 +27,7 @@ class MOTSequence:
         # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'det-processed.txt',
         'frcnn-processed': 'det-frcnn-processed.txt',
+        'sdp-processed': 'det-sdp-processed.txt',
         'poi-processed': 'det-poi-processed.txt',
         # =========== Detection & ReID & Mask ============= (DeepSORTPlus)
         'default-processed-mask': 'det-processed-mask.txt',
@@ -41,6 +42,7 @@ class MOTSequence:
         # =========== Detection & ReID ============== (DeepSORT)
         'default-processed': 'gt.txt',
         'frcnn-processed': 'gt.txt',
+        'sdp-processed': 'gt.txt',
         'poi-processed': 'gt.txt',
         # =========== Detection & ReID & Mask ============= (DeepSORTPlus)
         'default-processed-mask': 'gt.txt',
@@ -70,6 +72,7 @@ class MOTSequence:
             # =================== DeepSORT ======================
             or detector == 'default-processed'
             or detector == 'frcnn-processed'
+            or detector == 'sdp-processed'
             or detector == 'poi-processed'
             # =================== DeepSORTPlus ==================
             or detector == 'default-processed-mask'
