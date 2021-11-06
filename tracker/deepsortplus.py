@@ -107,6 +107,8 @@ class DeepSORTPlus:
         # ======================================================================
         # Extract detected objects
         oboxes, oconfs, omasks, ofeatures = [], [], [], []
+        if len(masks) == 0:
+            masks = [None]*len(bboxes)
         for box, mask in zip(bboxes, masks):
             if int(box[3])*int(box[4]) == 0:
                 continue
@@ -179,8 +181,8 @@ class DeepSORTPlus:
             pairs, tracks, observations = self._matching_cascade(
                                                 tracks,
                                                 observations,
-                                                threshold=self.cos_dist_threshold,
-                                                mode='cos')
+                                                threshold=self.maha_iou_dist_threshold,
+                                                mode='maha_iou')
         match_pairs.extend(pairs)
         unmatch_tracks.extend([ track
                                 for track in tracks
@@ -204,12 +206,6 @@ class DeepSORTPlus:
         else:
             pairs, tracks, observations = self._matching_cascade(
                                                 lost_tracks,
-                                                observations,
-                                                threshold=self.maha_cos_dist_threshold,
-                                                mode='maha_cos')
-            match_pairs.extend(pairs)
-            pairs, tracks, observations = self._matching_cascade(
-                                                tracks,
                                                 observations,
                                                 threshold=self.cos_dist_threshold,
                                                 mode='cos')
@@ -246,18 +242,16 @@ class DeepSORTPlus:
             box = observation[:5]   # (xmin, ymin, xmax, ymax, depth)
             conf = observation[5]
             feature = observation[-128:]
-            # Filter out false positive tracks
-            if conf > 0.7:
-                track = ContextTrack(box, feature,
-                                n_levels=self.n_levels,
-                                max_depth=self.max_depth,
-                                pool_size=self.pool_size,
-                                n_init=self.n_init,
-                                n_lost=self.n_lost,
-                                n_dead=self.n_dead,
-                                indoor=self.indoor,
-                                guess_limit=self.guess_limit)
-                self.tracks.append(track)
+            track = ContextTrack(box, feature,
+                            n_levels=self.n_levels,
+                            max_depth=self.max_depth,
+                            pool_size=self.pool_size,
+                            n_init=self.n_init,
+                            n_lost=self.n_lost,
+                            n_dead=self.n_dead,
+                            indoor=self.indoor,
+                            guess_limit=self.guess_limit)
+            self.tracks.append(track)
 
         # Remove tracks that are out of view
         self._filter_out_of_view(img)
