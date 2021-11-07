@@ -165,24 +165,11 @@ class DeepSORTPlus:
         unmatch_tracks = []
 
         # Perform matching cascade with live tracks
-        if self.indoor:
-            pairs, tracks, observations = self._matching_cascade(
-                                                live_tracks,
-                                                observations,
-                                                threshold=self.maha_cos_dist_threshold,
-                                                mode='maha_cos')
-        else:
-            pairs, tracks, observations = self._matching_cascade(
-                                                live_tracks,
-                                                observations,
-                                                threshold=self.maha_cos_dist_threshold,
-                                                mode='maha_cos')
-            match_pairs.extend(pairs)
-            pairs, tracks, observations = self._matching_cascade(
-                                                tracks,
-                                                observations,
-                                                threshold=self.maha_iou_dist_threshold,
-                                                mode='maha_iou')
+        pairs, tracks, observations = self._matching_cascade(
+                                            live_tracks,
+                                            observations,
+                                            threshold=self.maha_cos_dist_threshold,
+                                            mode='maha_cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend([ track
                                 for track in tracks
@@ -197,18 +184,11 @@ class DeepSORTPlus:
                 track.update_feature(features[0])
 
         # Perform matching cascade with lost tracks
-        if self.indoor:
-            pairs, tracks, observations = self._matching_cascade(
-                                                lost_tracks,
-                                                observations,
-                                                threshold=self.cos_dist_threshold,
-                                                mode='cos')
-        else:
-            pairs, tracks, observations = self._matching_cascade(
-                                                lost_tracks,
-                                                observations,
-                                                threshold=self.cos_dist_threshold,
-                                                mode='cos')
+        pairs, tracks, observations = self._matching_cascade(
+                                            lost_tracks,
+                                            observations,
+                                            threshold=self.cos_dist_threshold,
+                                            mode='cos')
         match_pairs.extend(pairs)
         unmatch_tracks.extend(tracks)
 
@@ -390,7 +370,16 @@ class DeepSORTPlus:
                 depth = self.max_depth*(1-np.mean(pixels[mask]))
                 new_boxes.append(box.tolist()+[depth])
             else:
-                new_boxes.append(box.tolist()+[0])
+                # Unpack bbox
+                xmin = int(box[0]) if int(box[0]) >= 0 else 0
+                ymin = int(box[1]) if int(box[1]) >= 0 else 0
+                xmax = int(box[2]) if int(box[2]) <= depthmap.size(2) else depthmap.size(2)
+                ymax = int(box[3]) if int(box[3]) <= depthmap.size(1) else depthmap.size(1)
+                # Crop the pixels from depthmap
+                dist = depthmap[0, ymin:ymax, xmin:xmax].numpy().reshape(-1)
+                _, depth = self._sample_mean(dist)
+                depth = self.max_depth*(1-depth)
+                new_boxes.append(box.tolist()+[depth])
 
         return np.array(new_boxes)
 

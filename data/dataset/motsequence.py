@@ -196,6 +196,8 @@ class MOTDSequence(MOTSequence):
         try:
             # All depth maps
             midasDir = osp.join(self.root, 'midas')
+            # midasDir = osp.join(self.root, 'boost')
+            # midasDir = osp.join(self.root, 'depth')
             self.depthmaps = sorted([ osp.join(midasDir, f) for f in os.listdir(midasDir) ])
         except Exception as e:
             self.depthmaps = [None]*len(self.imgs)
