@@ -112,7 +112,9 @@ class DeepSORTPlus:
         for box, mask in zip(bboxes, masks):
             if int(box[3])*int(box[4]) == 0:
                 continue
-            tlbr = tlwh_to_tlbr(box[1:1+4])
+            tlbr = list(tlwh_to_tlbr(box[1:1+4]))
+            tlbr[0] = tlbr[0] if tlbr[0] > 0 else 0
+            tlbr[1] = tlbr[1] if tlbr[1] > 0 else 0
             conf = [box[5]]
             feature = box[-128:]
             assert len(tlbr) == 4 and len(conf) == 1 and len(feature) == 128

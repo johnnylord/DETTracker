@@ -35,6 +35,7 @@ class MOTSequence:
         'poi-processed-mask': 'det-poi-processed-mask.txt',
         # =========== Detection & ReID & Mask ============= (Private detection)
         'mrcnn-processed-mask': 'det-mrcnn-processed-mask.txt',
+        'yolact-processed-mask': 'det-yolact-processed-mask.txt',
     }
     GT_TABLE = {
         # =========== RAW Dataset ===================
@@ -50,6 +51,7 @@ class MOTSequence:
         'poi-processed-mask': 'gt.txt',
         # =========== Detection & ReID & Mask ============= (Private Detection)
         'mrcnn-processed-mask': 'gt.txt',
+        'yolact-processed-mask': 'gt.txt',
     }
     def __init__(
             self,
@@ -80,6 +82,7 @@ class MOTSequence:
             or detector == 'poi-processed-mask'
             # ================== MaskRCNN =======================
             or detector == 'mrcnn-processed-mask'
+            or detector == 'yolact-processed-mask'
             )
 
         # Read seqinfo.ini
