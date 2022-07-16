@@ -1,4 +1,4 @@
-# deepsortplus
+# DETTracker
 
 ## Download Dataset
 ```bash
